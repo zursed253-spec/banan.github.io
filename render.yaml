@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: banan-zursed253-spec-relay
+    runtime: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install --omit=dev
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
