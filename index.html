@@ -240,7 +240,7 @@ function renderConn(){
   on('bHost',startHost);
   on('bJoin',()=>join($('#iCode').value));
   const serverInput=$('#iServer');
-  if(serverInput){serverInput.value=serverURL.replace(/^wss:\/\//,'https://').replace(/\/ws$/,'');serverInput.onchange=()=>{try{persistServer(normalizeServer(serverInput.value));Net.msg='Адрес сервера сохранён.';}catch(e){Net.msg=e.message;}renderConn();};}
+  if(serverInput){serverInput.value=serverURL.replace(/^wss:\/\//,'https://').replace(/\/ws$/,'');serverInput.onchange=()=>{try{persistServer(normalizeServer(serverInput.value));}catch(e){Net.msg=e.message;}};}
   on('bLocal',startLocal);
   on('bCancel',()=>{resetNet();renderConn();showHub();});
   on('bCopy',async()=>{try{await navigator.clipboard.writeText(link());toast('Ссылка скопирована');}catch(e){window.prompt('Скопируйте ссылку:',link());}});
