@@ -1,0 +1,16 @@
+{
+  "name": "banan-multiplayer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Small WebSocket relay for Banan board games",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "ws": "8.23.0"
+  }
+}
