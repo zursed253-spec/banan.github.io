@@ -708,7 +708,7 @@
         if(!remote && !ctx.local)ctx.send({k:'arena2',...payload});
       }
       function applyMove(p,to,remote){
-        if(finished||!ensureActor(p,remote)||!U.within(to,N*N)||blocked(to))return false;
+        if(finished||!ensureActor(p,remote)||!U.within(to,N*N)||blocked(to)||positions.some((position,index)=>index!==p&&position===to))return false;
         const a=rc(positions[p]),b=rc(to);
         if(Math.abs(a.r-b.r)+Math.abs(a.c-b.c)!==1)return false;
         if(!remote&&Date.now()-lastAction[p].move<190)return false;
@@ -999,7 +999,7 @@
 
     // ─────────────────────────────────────────────────────────────────────
     // 9. WHAT DISAPPEARED? — remember scattered meme objects and identify
-    //    which one vanished. Ten out of twenty are used every round.
+    //    which one vanished. Ten out of thirty-six are used every round.
     // ─────────────────────────────────────────────────────────────────────
     const vanishedIcon='<circle cx="15" cy="15" r="6"/><circle cx="33" cy="15" r="6"/><path d="M10 34c4-5 9-8 14-8s10 3 14 8"/><path d="M24 11v26"/><path d="M19 24h10"/>';
     function vanishedInit(ctx){
@@ -1014,7 +1014,7 @@
       area.append(hud,stage,choiceTitle,choices,toolbar);
 
       const ROUNDS=8;
-      let turn=0,round=0,score=[0,0],phase='idle',studyLeft=7,locked=false;
+      let turn=ctx.first,round=0,score=[0,0],phase='idle',studyLeft=7,locked=false;
       let puzzle=null, studyTimer=null, revealTimer=null;
 
       function cleanupTimers(){ if(studyTimer){clearInterval(studyTimer);studyTimer=null;} if(revealTimer){clearTimeout(revealTimer);revealTimer=null;} }
@@ -1038,7 +1038,7 @@
         const options=U.shuffle([picked[removed].id,...U.shuffle(candidateIds,seed*11+3).slice(0,9)], seed*71+5);
         return {picked,removed,positions,options};
       }
-      function roundSeed(){ return 4001 + round*131 + turn*19; }
+      function roundSeed(){ return 4001 + (ctx.n||1)*7919 + round*131 + turn*19; }
       function beginRound(remote){
         cleanupTimers();
         puzzle=makePuzzle(roundSeed());
@@ -1170,9 +1170,10 @@
         else if(d.k==='vanish-hide'){ hideOne(true); }
         else if(d.k==='vanish-guess'){ turn=d.turn; round=d.round; choose(d.id,true); }
       };
-      draw();
+      if(ctx.local || ctx.canAct(turn)) beginRound(false);
+      else draw();
     }
-    U.register('vanish','Что пропало?','10 из 20 мем-предметов раскиданы по столу. Один исчезает — угадайте какой.',true,vanishedIcon,vanishedInit);
+    U.register('vanish','Что пропало?','10 из 36 мем-предметов раскиданы по столу. Один исчезает — угадайте какой.',true,vanishedIcon,vanishedInit);
 
     // ─────────────────────────────────────────────────────────────────────
     // 10. BLOCKADE RUSH — two runners versus two runners with short walls.

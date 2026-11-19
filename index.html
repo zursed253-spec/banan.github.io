@@ -116,7 +116,7 @@ input[type=text],#iCode{border:1px solid #b9bdc2;border-radius:4px;padding:8px 1
 .bs-fleet .done{opacity:.25}
 .foot{margin-top:40px;color:var(--muted);font-size:12px;text-align:center}
 </style>
-<link rel="stylesheet" href="games-extra.css?v=4">
+<link rel="stylesheet" href="games-extra.css?v=5">
 </head>
 <body>
 
@@ -146,7 +146,7 @@ input[type=text],#iCode{border:1px solid #b9bdc2;border-radius:4px;padding:8px 1
   </section>
 </div>
 
-<script src="games-extra.js?v=4"></script>
+<script src="games-extra.js?v=5"></script>
 <script>
 (()=>{
 'use strict';
@@ -204,6 +204,7 @@ function renderCards(){
     b.innerHTML='<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">'+g.icon+'</svg>';
     const d=el('div');
     d.appendChild(el('h3','',g.name));d.appendChild(el('p','',g.desc));
+    if(g.id==='vanish')d.appendChild(el('span','tag','НОВИНКА · 36 мемов'));
     d.appendChild(el('span','tag',g.local?'Онлайн · Один экран':'Только онлайн'));
     b.appendChild(d);
     b.onclick=()=>{
@@ -770,6 +771,10 @@ Games.bs={init(ctx){
 /* ====================== НОВЫЕ ИГРЫ ====================== */
 if (typeof window.registerExtraGames === 'function') {
   window.registerExtraGames(Games, LIST, el);
+  const featuredIds=['vanish','arena'];
+  const featured=featuredIds.map(id=>LIST.find(game=>game.id===id)).filter(Boolean);
+  featured.forEach(game=>{const at=LIST.indexOf(game);if(at>=0)LIST.splice(at,1);});
+  LIST.unshift(...featured);
 } else {
   console.error('Не удалось загрузить библиотеку новых игр.');
 }
