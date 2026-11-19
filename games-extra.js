@@ -1003,7 +1003,7 @@
     // ─────────────────────────────────────────────────────────────────────
     const vanishedIcon='<circle cx="15" cy="15" r="6"/><circle cx="33" cy="15" r="6"/><path d="M10 34c4-5 9-8 14-8s10 3 14 8"/><path d="M24 11v26"/><path d="M19 24h10"/>';
     function vanishedInit(ctx){
-      const {area}=U.board(ctx,'Запомните десять мем-предметов на столе: они каждый раунд лежат по-новому. Потом один исчезнет — угадайте какой именно.', 'x-wide');
+      const {area}=U.board(ctx,'Из 36 мемов случайно выбираются 10. Один игрок выбирает, какой предмет исчезнет, второй должен его угадать. Роли меняются каждый раунд.', 'x-wide');
       const hud=U.make('div','x-hud');
       const stage=U.make('div','x-vanish-stage');
       const boardEl=U.make('div','x-vanish-board');
@@ -1014,166 +1014,245 @@
       area.append(hud,stage,choiceTitle,choices,toolbar);
 
       const ROUNDS=8;
-      let turn=ctx.first,round=0,score=[0,0],phase='idle',studyLeft=7,locked=false;
-      let puzzle=null, studyTimer=null, revealTimer=null;
+      let turn=Number.isInteger(ctx.first)?ctx.first:0;
+      let round=0,score=[0,0],phase='idle',studyLeft=7,locked=false;
+      let puzzle=null,studyTimer=null,revealTimer=null;
 
-      function cleanupTimers(){ if(studyTimer){clearInterval(studyTimer);studyTimer=null;} if(revealTimer){clearTimeout(revealTimer);revealTimer=null;} }
-      ctx.cleanup.push(cleanupTimers);
-      function makePuzzle(seed){
-        const picked=U.shuffle(MEME_POOL, seed*37+11).slice(0,10).map(x=>({id:x.id,src:x.src}));
-        const rand=U.rng(seed*53+97);
-        const removed=Math.floor(rand()*picked.length);
-        const positions=[];
-        for(let i=0;i<picked.length;i++){
-          const size=16+Math.floor(rand()*7);
-          positions.push({
-            left:4+rand()*74,
-            top:6+rand()*58,
-            rot:(rand()*30-15).toFixed(2),
-            size,
-            z:1+Math.floor(rand()*9)
-          });
-        }
-        const candidateIds=MEME_POOL.filter(item=>!picked.some(entry=>entry.id===item.id)).map(item=>item.id);
-        const options=U.shuffle([picked[removed].id,...U.shuffle(candidateIds,seed*11+3).slice(0,9)], seed*71+5);
-        return {picked,removed,positions,options};
+      function cleanupTimers(){
+        if(studyTimer!==null){clearInterval(studyTimer);studyTimer=null;}
+        if(revealTimer!==null){clearTimeout(revealTimer);revealTimer=null;}
       }
-      function roundSeed(){ return 4001 + (ctx.n||1)*7919 + round*131 + turn*19; }
+      ctx.cleanup.push(cleanupTimers);
+
+      function makePuzzle(seed){
+        const picked=U.shuffle(MEME_POOL,seed*37+11).slice(0,10).map(x=>({id:x.id,src:x.src}));
+        const rand=U.rng(seed*53+97);
+        const slots=U.shuffle(Array.from({length:10},(_,i)=>i),seed*23+1);
+        const positions=Array(10);
+        for(let i=0;i<picked.length;i++){
+          const slot=slots[i],col=slot%5,row=Math.floor(slot/5);
+          const size=14.8+rand()*0.6;
+          positions[i]={
+            left:2.2+col*19.5+rand()*0.8,
+            top:(row===0?7:55)+rand()*2,
+            rot:(rand()*3-1.5).toFixed(2),
+            size,
+            z:1
+          };
+        }
+        const options=U.shuffle(picked.map(item=>item.id),seed*71+5);
+        return {picked,removed:null,positions,options};
+      }
+      function roundSeed(){return 4001+(ctx.n||1)*7919+round*131+turn*19;}
+
       function beginRound(remote){
         cleanupTimers();
         puzzle=makePuzzle(roundSeed());
-        phase='study'; studyLeft=7; locked=false;
+        phase='study';studyLeft=7;locked=false;
         draw();
-        if(!remote && !ctx.local) ctx.send({k:'vanish-start',turn,round});
+        if(!remote&&!ctx.local)ctx.send({k:'vanish-start',turn,round});
         studyTimer=setInterval(()=>{
           studyLeft--;
           if(studyLeft<=0){
-            if(ctx.local || ctx.canAct(turn)) hideOne(false);
-            else cleanupTimers();
+            clearInterval(studyTimer);
+            studyTimer=null;
+            phase='remove';
+            draw();
           }else drawHud();
         },1000);
       }
-      function hideOne(remote){
-        if(phase!=='study') return;
-        cleanupTimers();
+
+      function removeItem(id,remote){
+        if(!puzzle||locked)return;
+        if(remote){
+          if(phase!=='study'&&phase!=='remove')return;
+        }else if(phase!=='remove'||!ctx.canAct(turn))return;
+        const removed=puzzle.picked.findIndex(item=>item.id===id);
+        if(removed<0)return;
+        puzzle.removed=removed;
         phase='guess';
+        locked=false;
         draw();
-        if(!remote && !ctx.local) ctx.send({k:'vanish-hide',turn,round});
+        if(!remote&&!ctx.local)ctx.send({k:'vanish-hide',turn,round,id});
       }
+
       function choose(id,remote){
-        if(phase!=='guess' || locked || (!remote && !ctx.canAct(turn))) return;
+        const guesser=1-turn;
+        if(phase!=='guess'||locked||(!remote&&!ctx.canAct(guesser)))return;
+        if(!puzzle.options.includes(id))return;
         locked=true;
-        const correct = id===puzzle.picked[puzzle.removed].id;
-        if(correct) score[turn]++;
+        const correct=id===puzzle.picked[puzzle.removed].id;
+        if(correct)score[guesser]++;
         phase='reveal';
         puzzle.choice=id;
         puzzle.correct=correct;
         draw();
-        if(!remote && !ctx.local) ctx.send({k:'vanish-guess',turn,round,id});
-        revealTimer=setTimeout(()=>nextRound(remote), 1600);
+        if(!remote&&!ctx.local)ctx.send({k:'vanish-guess',turn,round,id});
+        revealTimer=setTimeout(()=>nextRound(remote),1600);
       }
+
       function nextRound(remote){
         cleanupTimers();
+        if(remote){
+          if(round+1>=ROUNDS){
+            round=ROUNDS;
+            draw();
+            const winner=score[0]===score[1]?null:(score[0]>score[1]?0:1);
+            ctx.end(winner,'Раунды: '+score[0]+' : '+score[1]);
+          }else{
+            phase='waiting';
+            draw();
+          }
+          return;
+        }
         round++;
         if(round>=ROUNDS){
-          const w=score[0]===score[1]?null:(score[0]>score[1]?0:1);
           draw();
-          ctx.end(w,'Раунды: '+score[0]+' : '+score[1]);
+          const winner=score[0]===score[1]?null:(score[0]>score[1]?0:1);
+          ctx.end(winner,'Раунды: '+score[0]+' : '+score[1]);
           return;
         }
         turn=1-turn;
-        beginRound(!!remote);
+        beginRound(false);
       }
+
       function drawHud(){
         hud.textContent='';
         hud.append(
-          U.make('span','x-token','Раунд '+(round+1)+' / '+ROUNDS),
+          U.make('span','x-token','Раунд '+Math.min(round+1,ROUNDS)+' / '+ROUNDS),
           U.make('span','x-token','Игрок 1: '+score[0]),
           U.make('span','x-token','Игрок 2: '+score[1]),
-          U.make('span','x-token',phase==='study'?'Запоминайте: '+studyLeft+'с':phase==='guess'?'Что исчезло?':phase==='reveal'?(puzzle.correct?'Точно!':'Мимо!'):'Нажмите «Начать раунд»')
+          U.make('span','x-token',phase==='study'?'Запоминайте: '+studyLeft+'с':phase==='remove'?'Выберите предмет':phase==='guess'?'Угадайте пропажу':phase==='reveal'?(puzzle.correct?'Верно!':'Неверно!'):phase==='waiting'?'Ожидание следующего раунда':'Готово')
         );
       }
+
       function renderBoard(){
         boardEl.innerHTML='';
-        if(!puzzle) return;
+        if(!puzzle)return;
         puzzle.picked.forEach((item,idx)=>{
-          const gone = phase!=='study' && idx===puzzle.removed;
-          const slot=U.make('div','x-vanish-item'+(gone?' gone':'')+(phase==='reveal'&&idx===puzzle.removed?' answer':''));
-          slot.style.left=puzzle.positions[idx].left+'%';
-          slot.style.top=puzzle.positions[idx].top+'%';
-          slot.style.width=puzzle.positions[idx].size+'%';
-          slot.style.transform='rotate('+puzzle.positions[idx].rot+'deg)';
-          slot.style.zIndex=String(puzzle.positions[idx].z);
+          const pos=puzzle.positions[idx];
+          const gone=puzzle.removed===idx&&(phase==='guess'||phase==='reveal'||phase==='waiting');
+          const canSelect=phase==='remove'&&ctx.canAct(turn);
+          const slot=U.make('div','x-vanish-item'+(gone?' gone':'')+(canSelect?' selectable':'')+(phase==='reveal'&&gone?' answer':''));
+          slot.style.left=pos.left+'%';
+          slot.style.top=pos.top+'%';
+          slot.style.width=pos.size+'%';
+          slot.style.transform='rotate('+pos.rot+'deg)';
+          slot.style.zIndex=String(pos.z);
+          slot.dataset.itemId=item.id;
+          slot.dataset.left=String(pos.left);
+          slot.dataset.top=String(pos.top);
+          slot.dataset.size=String(pos.size);
+          slot.dataset.rot=String(pos.rot);
           if(gone){
-            return;
+            slot.append(U.make('span','','?'));
           }else{
             const img=new Image();
-            img.src=item.src; img.alt='Мем-предмет'; img.draggable=false;
+            img.src=item.src;img.alt='Мем-предмет';img.draggable=false;
             slot.append(img);
+          }
+          if(canSelect){
+            slot.setAttribute('role','button');
+            slot.setAttribute('tabindex','0');
+            slot.setAttribute('aria-label','Убрать предмет '+(idx+1));
+            slot.addEventListener('click',()=>removeItem(item.id,false));
+            slot.addEventListener('keydown',event=>{
+              if(event.key==='Enter'||event.key===' '){
+                event.preventDefault();
+                removeItem(item.id,false);
+              }
+            });
           }
           boardEl.append(slot);
         });
       }
+
       function renderChoices(){
         choices.innerHTML='';
-        if(!puzzle){ choiceTitle.textContent=''; return; }
+        if(!puzzle){choiceTitle.textContent='';return;}
         if(phase==='study'){
-          choiceTitle.textContent='Смотрите внимательно: предметы каждый раунд лежат случайно.';
+          choiceTitle.textContent='Запомните расположение всех предметов. После таймера один игрок выберет, что убрать.';
           return;
         }
-        choiceTitle.textContent=phase==='guess'?'Выберите исчезнувший предмет':(puzzle.correct?'Правильный предмет был таким:':'Пропал вот этот предмет:');
-        const lookup={}; MEME_POOL.forEach(item=>lookup[item.id]=item);
+        if(phase==='remove'){
+          choiceTitle.textContent=ctx.who(turn)+': нажмите на предмет, который должен исчезнуть.';
+          return;
+        }
+        if(phase==='waiting'){
+          choiceTitle.textContent='Ответ принят. Ожидаем следующий раунд.';
+        }else{
+          choiceTitle.textContent=phase==='guess'
+            ?ctx.who(1-turn)+': выберите исчезнувший предмет'
+            :(puzzle.correct?'Правильный ответ:':'Правильный предмет был таким:');
+        }
+        const lookup={};
+        MEME_POOL.forEach(item=>lookup[item.id]=item);
         puzzle.options.forEach(id=>{
           const item=lookup[id];
-          const b=U.button('x-vanish-choice', 'Вариант', ()=>choose(id,false));
-          if(phase!=='guess' || !ctx.canAct(turn)) b.disabled=true;
-          if(phase==='reveal' && id===puzzle.picked[puzzle.removed].id) b.classList.add('correct');
-          if(phase==='reveal' && puzzle.choice===id && !puzzle.correct) b.classList.add('wrong');
-          const img=new Image(); img.src=item.src; img.alt='Вариант'; img.draggable=false;
+          const b=U.button('x-vanish-choice','Вариант',()=>choose(id,false));
+          b.dataset.itemId=id;
+          if(phase!=='guess'||!ctx.canAct(1-turn))b.disabled=true;
+          if(phase==='reveal'&&id===puzzle.picked[puzzle.removed].id)b.classList.add('correct');
+          if(phase==='reveal'&&puzzle.choice===id&&!puzzle.correct)b.classList.add('wrong');
+          const img=new Image();
+          img.src=item.src;img.alt='Вариант';img.draggable=false;
           b.append(img);
           choices.append(b);
         });
       }
+
       function drawToolbar(){
         toolbar.textContent='';
-        if(round>=ROUNDS) return;
-        if(phase==='idle'){
-          const start=U.button('btn primary','Начать',()=>beginRound(false));
-          start.textContent='Начать раунд';
-          start.disabled=!ctx.canAct(turn);
-          toolbar.append(start);
-        }else if(phase==='study'){
-          const skip=U.button('btn','Спрятать сейчас',()=>hideOne(false));
-          skip.textContent='Спрятать сейчас';
-          skip.disabled=!ctx.canAct(turn);
-          toolbar.append(skip,U.make('span','x-remaining','Ходит: '+ctx.who(turn)));
+        if(round>=ROUNDS)return;
+        if(phase==='study'){
+          toolbar.append(
+            U.make('span','x-remaining','Запоминайте: '+studyLeft+' сек.'),
+            U.make('span','x-remaining','Выбирает пропажу: '+ctx.who(turn))
+          );
+        }else if(phase==='remove'){
+          toolbar.append(U.make('span','x-remaining',ctx.who(turn)+': выберите предмет на столе'));
         }else if(phase==='guess'){
-          toolbar.append(U.make('span','x-remaining','Выберите пропавший предмет · ходит: '+ctx.who(turn)));
+          toolbar.append(U.make('span','x-remaining',ctx.who(1-turn)+': найдите исчезнувший предмет'));
         }else if(phase==='reveal'){
-          toolbar.append(U.make('span','x-remaining',puzzle.correct?'Игрок нашёл пропажу':'Игрок ошибся'));
+          toolbar.append(U.make('span','x-remaining',puzzle.correct?'Правильно! +1 очко':'Неправильно'));
+        }else if(phase==='waiting'){
+          toolbar.append(U.make('span','x-remaining','Ожидаем следующий раунд'));
         }
       }
+
       function draw(){
         drawHud();
         renderBoard();
         renderChoices();
         drawToolbar();
-        if(round>=ROUNDS) return;
-        if(phase==='idle') ctx.turn(turn,'Начните раунд');
-        else if(phase==='study') ctx.turn(turn,'Запоминайте предметы');
-        else if(phase==='guess') ctx.turn(turn,'Что исчезло?');
-        else if(phase==='reveal') ctx.turn(turn,puzzle.correct?'Верный ответ':'Неверный ответ');
+        if(round>=ROUNDS)return;
+        const active=phase==='guess'||phase==='reveal'||phase==='waiting'?1-turn:turn;
+        if(phase==='study')ctx.turn(turn,'Запоминайте предметы');
+        else if(phase==='remove')ctx.turn(turn,'Выберите предмет, который пропадёт');
+        else if(phase==='guess')ctx.turn(1-turn,'Угадайте исчезнувший предмет');
+        else if(phase==='reveal')ctx.turn(1-turn,puzzle.correct?'Верный ответ':'Неверный ответ');
+        else if(phase==='waiting')ctx.turn(active,'Ожидаем следующего раунда');
       }
+
       ctx.onMsg=d=>{
-        if(!d||typeof d.k!=='string') return;
-        if(d.k==='vanish-start'){ turn=d.turn; round=d.round; beginRound(true); }
-        else if(d.k==='vanish-hide'){ hideOne(true); }
-        else if(d.k==='vanish-guess'){ turn=d.turn; round=d.round; choose(d.id,true); }
+        if(!d||typeof d.k!=='string')return;
+        if(d.k==='vanish-start'){
+          if((d.turn!==0&&d.turn!==1)||!Number.isInteger(d.round))return;
+          turn=d.turn;round=d.round;
+          beginRound(true);
+        }else if(d.k==='vanish-hide'){
+          if(d.turn!==turn||d.round!==round)return;
+          removeItem(d.id,true);
+        }else if(d.k==='vanish-guess'){
+          if(d.turn!==turn||d.round!==round)return;
+          choose(d.id,true);
+        }
       };
-      if(ctx.local || ctx.canAct(turn)) beginRound(false);
+
+      if(ctx.local||ctx.canAct(turn))beginRound(false);
       else draw();
     }
-    U.register('vanish','Что пропало?','10 из 36 мем-предметов раскиданы по столу. Один исчезает — угадайте какой.',true,vanishedIcon,vanishedInit);
+    U.register('vanish','Что пропало?','10 предметов на столе. Один игрок выбирает, что исчезнет, второй угадывает. Роли меняются каждый раунд.',true,vanishedIcon,vanishedInit);
 
     // ─────────────────────────────────────────────────────────────────────
     // 10. BLOCKADE RUSH — two runners versus two runners with short walls.

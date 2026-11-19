@@ -104,12 +104,13 @@
   linear-gradient(135deg,#e6d5bb,#dac0a4 42%,#e1ceb6 100%);
   overflow:hidden;box-shadow:inset 0 2px 18px rgba(0,0,0,.07)}
 .x-vanish-board::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(90deg,transparent,transparent 58px,rgba(255,255,255,.09) 59px)}
-.x-vanish-item{position:absolute;display:flex;align-items:center;justify-content:center;transition:transform .25s,opacity .25s,filter .25s}
-.x-vanish-item img{width:100%;height:auto;display:block;border-radius:14px;box-shadow:0 10px 18px rgba(0,0,0,.18);border:3px solid rgba(255,255,255,.85);background:#f5f5f5}
-.x-vanish-item.gone{min-width:72px;min-height:72px;border:3px dashed rgba(40,52,64,.35);border-radius:16px;background:rgba(255,255,255,.26);backdrop-filter:blur(1px)}
-.x-vanish-item.gone span{font-size:34px;font-weight:800;color:#324155;opacity:.78}
-.x-vanish-item.answer{animation:answerPulse 1s ease-in-out infinite alternate}
-@keyframes answerPulse{from{transform:scale(1)}to{transform:scale(1.05)}}
+.x-vanish-item{position:absolute;box-sizing:border-box;aspect-ratio:1;display:flex;align-items:center;justify-content:center;transition:filter .2s,outline-color .2s}
+.x-vanish-item img{width:100%;height:100%;box-sizing:border-box;object-fit:contain;display:block;border-radius:14px;box-shadow:0 10px 18px rgba(0,0,0,.18);border:3px solid rgba(255,255,255,.85);background:#f5f5f5}
+.x-vanish-item.selectable{cursor:pointer;touch-action:manipulation}
+.x-vanish-item.selectable:hover,.x-vanish-item.selectable:focus-visible{outline:3px solid #fff;outline-offset:3px;filter:brightness(1.08)}
+.x-vanish-item.gone{border:3px dashed rgba(40,52,64,.35);border-radius:16px;background:rgba(255,255,255,.26);backdrop-filter:blur(1px)}
+.x-vanish-item.gone span{font-size:clamp(24px,4vw,38px);font-weight:800;color:#324155;opacity:.78}
+.x-vanish-item.answer{outline:3px solid #58a864}
 .x-vanish-title{margin:10px 0 8px;font-weight:700;text-align:center}
 .x-vanish-choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(94px,1fr));gap:10px;width:min(96vw,900px)}
 .x-vanish-choice{background:#fff;border:1px solid #ccd3da;border-radius:16px;padding:6px;cursor:pointer;min-height:88px}
