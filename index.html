@@ -116,7 +116,7 @@ input[type=text],#iCode{border:1px solid #b9bdc2;border-radius:4px;padding:8px 1
 .bs-fleet .done{opacity:.25}
 .foot{margin-top:40px;color:var(--muted);font-size:12px;text-align:center}
 </style>
-<link rel="stylesheet" href="games-extra.css?v=5">
+<link rel="stylesheet" href="games-extra.css?v=6">
 </head>
 <body>
 
@@ -131,7 +131,7 @@ input[type=text],#iCode{border:1px solid #b9bdc2;border-radius:4px;padding:8px 1
     <div class="panel" id="conn"></div>
     <div class="sec">Игры</div>
     <div class="cards" id="cards"></div>
-    <p class="foot">Для игры онлайн оба игрока открывают одну и ту же страницу. Один создаёт комнату, второй вводит код.</p>
+    <p class="foot">Онлайн-комнаты поддерживают до четырёх игроков. Создайте комнату и отправьте код компании.</p>
   </section>
 
   <section id="gameView" hidden>
@@ -146,7 +146,8 @@ input[type=text],#iCode{border:1px solid #b9bdc2;border-radius:4px;padding:8px 1
   </section>
 </div>
 
-<script src="games-extra.js?v=5"></script>
+<script src="games-extra.js?v=6"></script>
+<script src="games-cards.js?v=1"></script>
 <script>
 (()=>{
 'use strict';
@@ -178,7 +179,7 @@ function persistServer(url){
 }
 const Games={};
 let cur=null,scores={},seq=0;
-const Net={state:'idle',open:false,peer:null,conn:null,role:0,code:'',msg:'',timer:null};
+const Net={state:'idle',open:false,peer:null,conn:null,role:0,players:0,maxPlayers:2,localPlayers:2,code:'',msg:'',timer:null};
 
 function toast(t){const d=el('div','toast',t);document.body.appendChild(d);setTimeout(()=>d.remove(),3200);}
 
@@ -199,17 +200,19 @@ const LIST=[
 function renderCards(){
   const box=$('#cards');box.innerHTML='';
   LIST.forEach(g=>{
-    const ready=Net.state==='connected'||(Net.state==='local'&&g.local);
+    const min=g.minPlayers??2,max=g.maxPlayers??2,count=Net.players||2;
+    const modeReady=(Net.state==='connected'&&g.online!==false)||(Net.state==='local'&&g.local!==false);
+    const ready=modeReady&&count>=min&&count<=max;
     const b=el('button','card'+(ready?'':' locked'));
+    b.disabled=!ready;
     b.innerHTML='<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round">'+g.icon+'</svg>';
     const d=el('div');
     d.appendChild(el('h3','',g.name));d.appendChild(el('p','',g.desc));
     if(g.id==='vanish')d.appendChild(el('span','tag','НОВИНКА · 36 мемов'));
-    d.appendChild(el('span','tag',g.local?'Онлайн · Один экран':'Только онлайн'));
+    d.appendChild(el('span','tag',min===1?'1–4 игрока · есть боты':min+'–'+max+' игрока'));
     b.appendChild(d);
     b.onclick=()=>{
-      if(Net.state==='local'&&!g.local){toast('Эта игра доступна только онлайн');return;}
-      if(Net.state!=='connected'&&Net.state!=='local'){toast('Сначала подключитесь к другу или выберите режим «Один экран»');return;}
+      if(!ready){toast('Для этой игры нужно '+min+'–'+max+' участников');return;}
       requestStart(g.id);
     };
     box.appendChild(b);
@@ -220,22 +223,23 @@ function renderConn(){
   const p=$('#conn');let h='';
   const link=()=>location.href.split('?')[0].split('#')[0]+'?room='+Net.code+'&server='+encodeURIComponent(serverURL);
   if(Net.state==='idle'){
-    h='<div class="conn-grid"><div><div class="lbl">Онлайн с другом</div>'+
+    h='<div class="conn-grid"><div><div class="lbl">Онлайн с компанией</div>'+
+      '<div class="line"><label class="hint" for="roomCount">Игроков в комнате</label><select id="roomCount" class="select-small"><option value="2">2 игрока</option><option value="3">3 игрока</option><option value="4" selected>4 игрока</option></select></div>'+
       '<div class="line"><button class="btn primary" id="bHost">Создать комнату</button></div>'+
-      '<div class="line"><input id="iCode" maxlength="5" placeholder="Код комнаты" autocomplete="off"><button class="btn" id="bJoin">Войти</button></div>'+ 
+      '<div class="line"><input id="iCode" maxlength="5" placeholder="Код комнаты" autocomplete="off"><button class="btn" id="bJoin">Войти</button></div>'+
       '<div class="hint">Сервер игры (Render):</div><div class="line"><input id="iServer" type="text" autocomplete="url" spellcheck="false" style="width:min(100%,390px);text-transform:none;letter-spacing:normal" placeholder="https://имя.onrender.com"></div><p class="hint">Обычно менять адрес не нужно. После создания сервиса Render укажи здесь его адрес один раз.</p></div>'+
-      '<div><div class="lbl">Один экран</div><p class="hint">Двое играют по очереди на одном устройстве. Морской бой в этом режиме недоступен.</p>'+
-      '<button class="btn" id="bLocal">Играть вдвоём</button></div></div>';
+      '<div><div class="lbl">Один экран</div><p class="hint">Выберите от 1 до 4 участников. В одиночных играх против вас будут боты.</p>'+
+      '<div class="line"><label class="hint" for="localCount">Участников</label><select id="localCount" class="select-small"><option value="1">1 игрок · с ботами</option><option value="2" selected>2 игрока</option><option value="3">3 игрока</option><option value="4">4 игрока</option></select></div><button class="btn" id="bLocal">Начать</button></div></div>';
   }else if(Net.state==='hosting'){
     h=Net.open
-      ?'<div class="lbl">Комната создана</div><div class="row"><span class="code">'+Net.code+'</span><button class="btn" id="bCopy">Скопировать ссылку</button><button class="btn" id="bCancel">Отмена</button></div><p class="hint" style="margin-top:10px">Отправьте код или ссылку другу. Ожидаем подключения…</p>'
+      ?'<div class="lbl">Комната создана · '+Net.players+' / '+Net.maxPlayers+'</div><div class="row"><span class="code">'+Net.code+'</span><button class="btn" id="bCopy">Скопировать ссылку</button><button class="btn" id="bCancel">Отмена</button></div><p class="hint" style="margin-top:10px">Отправьте код друзьям. Игроков можно подключить: '+(Net.maxPlayers-Net.players)+'.</p>'
       :'<div class="row"><span>Создаём комнату…</span><button class="btn" id="bCancel">Отмена</button></div>';
   }else if(Net.state==='joining'){
     h='<div class="row"><span>Подключение к комнате <b>'+Net.code+'</b>…</span><button class="btn" id="bCancel">Отмена</button></div>';
   }else if(Net.state==='connected'){
-    h='<div class="row"><span>Подключено. Комната <b>'+Net.code+'</b>. Вы — игрок '+(Net.role+1)+'.</span><button class="btn" id="bCancel">Отключиться</button></div><p class="hint" style="margin-top:8px">Выберите игру ниже — она откроется у обоих игроков.</p>';
+    h='<div class="row"><span>Комната <b>'+Net.code+'</b> · Вы — игрок '+(Net.role+1)+' · участников '+Net.players+'/'+Net.maxPlayers+'.</span><button class="btn" id="bCancel">Отключиться</button></div><p class="hint" style="margin-top:8px">Выберите игру ниже — она откроется у всех участников.</p>';
   }else if(Net.state==='local'){
-    h='<div class="row"><span>Режим «Один экран». Игроки ходят по очереди.</span><button class="btn" id="bCancel">Выйти из режима</button></div>';
+    h='<div class="row"><span>Режим «Один экран» · участников: '+Net.players+'.</span><button class="btn" id="bCancel">Выйти из режима</button></div>';
   }
   if(Net.msg)h+='<div class="msg">'+Net.msg+'</div>';
   p.innerHTML=h;
@@ -244,7 +248,7 @@ function renderConn(){
   on('bJoin',()=>join($('#iCode').value));
   const serverInput=$('#iServer');
   if(serverInput){serverInput.value=serverURL.replace(/^wss:\/\//,'https://').replace(/\/ws$/,'');serverInput.onchange=()=>{try{persistServer(normalizeServer(serverInput.value));}catch(e){Net.msg=e.message;}};}
-  on('bLocal',startLocal);
+  on('bLocal',()=>startLocal($('#localCount')?.value));
   on('bCancel',()=>{resetNet();renderConn();showHub();});
   on('bCopy',async()=>{try{await navigator.clipboard.writeText(link());toast('Ссылка скопирована');}catch(e){window.prompt('Скопируйте ссылку:',link());}});
   const ic=$('#iCode');if(ic)ic.onkeydown=e=>{if(e.key==='Enter')join(ic.value);};
@@ -269,18 +273,19 @@ function genCode(){
 function resetNet(){
   clearTimeout(Net.timer);
   const socket=Net.peer;
-  Net.peer=null;Net.conn=null;Net.state='idle';Net.open=false;Net.code='';Net.msg='';scores={};
+  Net.peer=null;Net.conn=null;Net.state='idle';Net.open=false;Net.role=0;Net.players=0;Net.maxPlayers=2;Net.localPlayers=2;Net.code='';Net.msg='';scores={};
   if(socket){try{socket.close();}catch(e){}}
 }
 function fail(e){
   const t=e&&e.type;
   let m='Ошибка соединения. Попробуйте ещё раз.';
   if(t==='room_not_found')m='Комната не найдена. Проверьте код и попросите друга создать комнату.';
-  else if(t==='room_full')m='В комнате уже два игрока.';
+  else if(t==='room_full')m='Комната заполнена. Проверьте выбранное число мест.';
   else if(t==='timeout')m='Сервер долго отвечает. Бесплатный Render может запускаться около минуты. Попробуйте ещё раз.';
   else if(t==='invalid_code')m='Код комнаты должен содержать пять букв или цифр.';
   else if(t==='server_busy')m='Сервер занят. Попробуйте позже.';
-  else if(t==='not_connected')m='Соперник пока не подключён.';
+  else if(t==='not_connected')m='Пока никто не подключён к комнате.';
+  else if(t==='not_host')m='Запустить игру может только создатель комнаты.';
   else if(t==='socket_error')m='Не удалось открыть WebSocket. Проверьте, запущен ли сервер Render и правильно ли указан адрес.';
   else if(t==='socket_closed')m='Соединение с сервером прервано. Обновите страницу или попробуйте позже.';
   resetNet();Net.msg=m;renderConn();showHub();
@@ -292,9 +297,10 @@ function sendSignal(value){
   }
   return false;
 }
-function connectServer(mode,code){
+function connectServer(mode,code,maxPlayers=2){
   resetNet();
   Net.code=code;Net.role=mode==='host'?0:1;Net.state=mode==='host'?'hosting':'joining';
+  Net.players=mode==='host'?1:0;Net.maxPlayers=mode==='host'?maxPlayers:2;
   Net.open=false;
   let socket;
   try{socket=new WebSocket(serverURL);}catch(e){fail({type:'socket_error'});return;}
@@ -302,26 +308,23 @@ function connectServer(mode,code){
   Net.timer=setTimeout(()=>{if(Net.peer===socket&&Net.state!=='connected')fail({type:'timeout'});},75000);
   socket.onopen=()=>{
     if(Net.peer!==socket)return;
-    sendSignal({t:mode,code:Net.code});
+    sendSignal({t:mode,code:Net.code,maxPlayers:Net.maxPlayers});
   };
   socket.onmessage=event=>{
     if(Net.peer!==socket)return;
     let msg;
     try{msg=JSON.parse(event.data);}catch{return;}
     if(msg.t==='hosted'){
-      Net.open=true;Net.msg='';clearTimeout(Net.timer);renderConn();
+      Net.open=true;Net.players=msg.players||1;Net.maxPlayers=msg.maxPlayers||Net.maxPlayers;Net.msg='';clearTimeout(Net.timer);renderConn();
     }else if(msg.t==='ready'){
       clearTimeout(Net.timer);Net.open=true;Net.state='connected';
-      Net.role=msg.role;scores={};Net.msg='';
+      Net.role=msg.role;Net.players=msg.players||2;Net.maxPlayers=msg.maxPlayers||Net.maxPlayers;scores={};Net.msg='';
       Net.conn={open:true,send(value){return sendSignal({t:'data',payload:value});}};
-      renderConn();toast('Соединение установлено');
+      renderConn();toast('В комнате '+Net.players+' из '+Net.maxPlayers);
     }else if(msg.t==='peer_left'){
-      Net.conn=null;scores={};showHub();
-      if(Net.role===0){
-        Net.state='hosting';Net.open=true;
-        Net.msg='Друг отключился. Комната остаётся открытой — можно подключиться снова.';
-        renderConn();
-      }else fail({type:'socket_closed'});
+      Net.role=msg.role??Net.role;Net.players=msg.players??Math.max(1,Net.players-1);Net.maxPlayers=msg.maxPlayers||Net.maxPlayers;
+      Net.conn={open:true,send(value){return sendSignal({t:'data',payload:value});}};
+      scores={};showHub();renderConn();toast('Игрок вышел. Осталось: '+Net.players);
     }else if(msg.t==='data'){
       if(Net.state==='connected')onData(msg.payload);
     }else if(msg.t==='error'){
@@ -342,7 +345,8 @@ function startHost(){
     const inp=$('#iServer');
     if(inp)persistServer(normalizeServer(inp.value));
   }catch(e){Net.msg=e.message;renderConn();return;}
-  connectServer('host',genCode());
+  const requested=Number($('#roomCount')?.value||4);
+  connectServer('host',genCode(),Math.max(2,Math.min(4,requested)));
 }
 function join(code){
   code=String(code||'').trim().toUpperCase();
@@ -353,34 +357,47 @@ function join(code){
     const inp=$('#iServer');
     if(inp)persistServer(normalizeServer(inp.value));
   }catch(e){Net.msg=e.message;renderConn();return;}
-  connectServer('join',code);
+  connectServer('join',code,2);
 }
-function startLocal(){resetNet();Net.state='local';renderConn();}
+function startLocal(count){
+  resetNet();
+  Net.state='local';
+  Net.players=Math.max(1,Math.min(4,Number(count)||2));
+  Net.localPlayers=Net.players;
+  Net.maxPlayers=Net.players;
+  renderConn();
+}
 function onData(m){
   if(!m||typeof m!=='object')return;
   if(m.t==='req'){if(Net.role===0&&LIST.some(g=>g.id===m.game))hostStart(m.game);}
-  else if(m.t==='start'){launch(m.game,m.first,m.n);}
+  else if(m.t==='start'){launch(m.game,m.first,m.n,m.players);}
   else if(m.t==='menu'){showHub();}
   else if(m.t==='g'){if(cur&&m.n===cur.n&&cur.ctx.onMsg)cur.ctx.onMsg(m.d);}
 }
 function hostStart(id){
-  const first=Math.random()<.5?0:1,n=++seq;
-  if(Net.conn&&Net.conn.open)Net.conn.send({t:'start',game:id,first,n});
-  launch(id,first,n);
+  const game=LIST.find(item=>item.id===id);
+  if(!game||Net.players<(game.minPlayers??2)||Net.players>(game.maxPlayers??2))return;
+  const first=Math.floor(Math.random()*Math.max(1,Net.players)),n=++seq,players=Net.players||2;
+  if(Net.conn&&Net.conn.open)Net.conn.send({t:'start',game:id,first,n,players});
+  launch(id,first,n,players);
 }
 function requestStart(id){
-  if(Net.state==='local'){launch(id,Math.random()<.5?0:1,++seq);return;}
+  const game=LIST.find(item=>item.id===id);
+  if(!game)return;
+  const count=Net.players||2;
+  if(count<(game.minPlayers??2)||count>(game.maxPlayers??2)){toast('Для этой игры нужно '+(game.minPlayers??2)+'–'+(game.maxPlayers??2)+' участников');return;}
+  if(Net.state==='local'){launch(id,Math.floor(Math.random()*Math.max(1,Net.players)),++seq,Net.players);return;}
   if(Net.state!=='connected')return;
   if(Net.role===0)hostStart(id);else Net.conn.send({t:'req',game:id});
 }
 
 /* ====================== ЗАПУСК ИГРЫ ====================== */
-function makeCtx(id,first,n){
+function makeCtx(id,first,n,players){
   const local=Net.state==='local';
   const ctx={
-    id,first,n,local,me:local?null:Net.role,pov:local?0:Net.role,root:$('#board'),cleanup:[],onMsg:null,
+    id,first,n,players:Math.max(1,Number(players)||Net.players||2),maxPlayers:Net.maxPlayers,local,me:local?null:Net.role,pov:local?0:Net.role,root:$('#board'),cleanup:[],onMsg:null,
     canAct(t){return local||t===this.me;},
-    who(p){return local?'Игрок '+(p+1):(p===this.me?'Вы':'Соперник');},
+    who(p){return local?'Игрок '+(p+1):(p===this.me?'Вы':'Игрок '+(p+1));},
     send(d){if(!local&&Net.conn&&Net.conn.open)Net.conn.send({t:'g',n,d});},
     setStatus(text,p,extra,done){
       const s=$('#status');s.innerHTML='';s.className='status'+(done?' done':'');
@@ -393,23 +410,27 @@ function makeCtx(id,first,n){
       this.setStatus(t,p,extra);
     },
     end(w,extra){
-      const sc=scores[id]||(scores[id]=[0,0]);
-      if(w!==null)sc[w]++;
-      const t=w===null?'Ничья':(local?'Победил: '+this.who(w):(w===this.me?'Вы победили':'Победил соперник'));
+      const sc=scores[id]||(scores[id]=Array.from({length:this.players},()=>0));
+      while(sc.length<this.players)sc.push(0);
+      if(w!==null&&w!==undefined&&Number.isInteger(w)&&sc[w]!==undefined)sc[w]++;
+      const t=w===null?'Ничья':(local?'Победил: '+this.who(w):(w===this.me?'Вы победили':'Победил игрок '+(w+1)));
       this.setStatus(t,w===null?null:w,extra,true);
       this.renderScore();
     },
     renderScore(){
-      const sc=scores[id]||(scores[id]=[0,0]);
-      const a=this.pov,b=1-a,s=$('#score');
-      s.innerHTML='';
-      s.append(chip(a),el('span','',this.who(a)),el('b','',sc[a]+' : '+sc[b]),el('span','',this.who(b)),chip(b));
+      const sc=scores[id]||(scores[id]=Array.from({length:this.players},()=>0));
+      while(sc.length<this.players)sc.push(0);
+      const s=$('#score');s.innerHTML='';
+      for(let i=0;i<this.players;i++)s.append(chip(i),el('span','score-name',this.who(i)),el('b','',String(sc[i])));
     }
   };
   return ctx;
 }
-function launch(id,first,n){
-  if(!Games[id])return;
+function launch(id,first,n,players){
+  const gameMeta=LIST.find(game=>game.id===id);
+  if(!Games[id]||!gameMeta)return;
+  if(players!==undefined)Net.players=Math.max(1,Math.min(4,Number(players)||Net.players||2));
+  if(Net.players<(gameMeta.minPlayers??2)||Net.players>(gameMeta.maxPlayers??2))return;
   if(Net.state!=='connected'&&Net.state!=='local')return;
   if(cur){cur.ctx.cleanup.forEach(f=>f());cur=null;}
   const ctx=makeCtx(id,first,n);
@@ -771,10 +792,14 @@ Games.bs={init(ctx){
 /* ====================== НОВЫЕ ИГРЫ ====================== */
 if (typeof window.registerExtraGames === 'function') {
   window.registerExtraGames(Games, LIST, el);
-  const featuredIds=['vanish','arena'];
+  const featuredIds=['vanish'];
   const featured=featuredIds.map(id=>LIST.find(game=>game.id===id)).filter(Boolean);
   featured.forEach(game=>{const at=LIST.indexOf(game);if(at>=0)LIST.splice(at,1);});
   LIST.unshift(...featured);
+  const arenaIndex=LIST.findIndex(game=>game.id==='arena');
+  if(arenaIndex>=0)LIST.splice(arenaIndex,1);
+  LIST.forEach(game=>{game.minPlayers=game.minPlayers??2;game.maxPlayers=game.maxPlayers??2;});
+  if(typeof window.registerCardGames==='function')window.registerCardGames(Games,LIST,el);
 } else {
   console.error('Не удалось загрузить библиотеку новых игр.');
 }

@@ -223,3 +223,107 @@ body.danger-flash{animation:dangerShake .38s ease-in-out}
 .arena2-sprite.p1{background:linear-gradient(150deg,#ffb7a9,#ab3b36)}
 .arena2-sprite.guarded{box-shadow:0 0 0 5px #6ddeee80,0 0 19px 9px #63ccef80;animation:arena2-shield 1.2s ease-in-out infinite alternate}
 @keyframes arena2-shield{from{filter:brightness(.9)}to{filter:brightness(1.2)}}
+
+
+/* ─────────────── Card and strategy games ─────────────── */
+.select-small{border:1px solid #b9bdc2;border-radius:4px;background:#fff;padding:7px 10px;min-width:125px}
+.score{flex-wrap:wrap}
+.score-name{font-size:12px}
+.cg-wrap{width:min(100%,920px);display:flex;flex-direction:column;gap:14px;min-width:0}
+.cg-intro{text-align:center;max-width:760px;margin:0 auto}
+.cg-heading{font-size:22px;font-weight:750;letter-spacing:-.4px;margin-bottom:4px}
+.cg-description{font-size:13px;color:var(--muted);line-height:1.6}
+.cg-hud{display:flex;justify-content:center;align-items:center;gap:7px;flex-wrap:wrap}
+.cg-pill{display:inline-flex;align-items:center;justify-content:center;padding:5px 10px;border:1px solid #d4d8dc;border-radius:999px;background:#fff;color:#46515d;font-size:12px;font-weight:650}
+.cg-table{width:100%;min-height:160px;padding:14px;border:1px solid #d4d8dc;border-radius:12px;background:linear-gradient(145deg,#e9eee9,#dbe5dc);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;overflow:hidden}
+.cg-seats{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;width:100%}
+.cg-seat{display:flex;align-items:center;gap:7px;padding:7px 10px;border:1px solid #d1d8d3;border-radius:9px;background:rgba(255,255,255,.82);font-size:12px}
+.cg-seat span,.cg-seat small{color:#65716a}
+.cg-seat.active,.cg-poker-seat.active,.cg-hero.active{outline:2px solid #557b61;border-color:#557b61}
+.cg-play{display:flex;justify-content:center;align-items:center;gap:10px;flex-wrap:wrap;min-height:110px}
+.cg-duel{display:flex;align-items:center;gap:5px;padding:6px;border:1px solid rgba(70,85,75,.15);border-radius:10px;background:rgba(255,255,255,.42)}
+.cg-empty-card,.cg-empty-table{width:64px;height:90px;border:1px dashed #a8b4aa;border-radius:9px;display:grid;place-items:center;color:#7d8a7f;background:rgba(255,255,255,.3)}
+.cg-empty-table{width:auto;height:auto;padding:12px 22px;border-radius:999px}
+.cg-hand{display:flex;flex-direction:column;gap:10px;align-items:center;min-width:0}
+.cg-subtitle{font-size:14px;font-weight:700;text-align:center}
+.cg-card-row{display:flex;justify-content:center;align-items:flex-start;gap:7px;flex-wrap:wrap;width:100%}
+.cg-card{position:relative;width:66px;height:94px;flex:0 0 auto;border:1px solid #c5cbd0;border-radius:9px;background:#fff;box-shadow:0 3px 8px rgba(25,35,45,.13);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;padding:5px;cursor:pointer;transition:transform .15s,box-shadow .15s}
+.cg-card:not(:disabled):hover{transform:translateY(-5px);box-shadow:0 7px 13px rgba(25,35,45,.18)}
+.cg-card.red{color:#b43b3b}.cg-card.black{color:#26384d}
+.cg-card-rank{font-size:22px;font-weight:800;line-height:1}
+.cg-card-suit{font-size:27px;line-height:1.2}
+.cg-card-corner{position:absolute;right:5px;bottom:4px;font-size:10px;font-weight:700}
+.cg-card:disabled,.cg-card-disabled{opacity:.72;cursor:default}
+.cg-card-back{background:repeating-linear-gradient(45deg,#304c6d,#304c6d 5px,#49698d 5px,#49698d 10px);border:3px solid #f4f6f8;color:#fff}
+.cg-card-backmark{font-size:28px;color:#e7edf5}
+.cg-wait{padding:10px 14px;border:1px dashed #c3c9cf;border-radius:9px;background:#fff;color:#59636d;font-size:13px;text-align:center}
+.cg-controls{display:flex;justify-content:center;gap:8px;flex-wrap:wrap}
+.cg-action{border:1px solid #bbc3ca;border-radius:7px;background:#fff;padding:9px 15px;font-weight:650;cursor:pointer}
+.cg-action.primary{background:#304c6d;border-color:#304c6d;color:#fff}
+.cg-action.danger{background:#f7eeee;border-color:#dfc0bd;color:#853b36}
+.cg-action:disabled{opacity:.5;cursor:default}
+.cg-muted{font-size:12px;color:#6c747c}
+.cg-discard{display:flex;align-items:center;gap:12px;color:#68716b;font-size:12px;font-weight:700}
+.cg-color-card{width:68px;height:94px;border:3px solid rgba(255,255,255,.92);border-radius:12px;box-shadow:0 5px 12px rgba(0,0,0,.14);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#fff;cursor:pointer}
+.cg-color-card b{font-size:27px;line-height:1}
+.cg-color-card small{font-size:9px;font-weight:800;letter-spacing:.7px}
+.cg-color-card.color-0{background:#355f91}.cg-color-card.color-1{background:#bd4945}.cg-color-card.color-2{background:#4d8159}.cg-color-card.color-3{background:#b88630}
+.cg-color-card.playable{outline:3px solid #f2cf70;outline-offset:2px}
+.cg-color-card:disabled{opacity:.45;cursor:default}
+.cg-color-pick{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.cg-color-dot{min-width:74px;min-height:38px;border:2px solid #fff;border-radius:8px;color:#fff;font-weight:700;box-shadow:0 2px 5px rgba(0,0,0,.15)}
+.cg-poker-seats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;width:100%}
+.cg-poker-seat{padding:9px;border:1px solid #d1d8d3;border-radius:10px;background:rgba(255,255,255,.88);display:flex;flex-direction:column;gap:3px;min-width:0}
+.cg-poker-seat b{font-size:13px}.cg-poker-seat span,.cg-poker-seat small{font-size:11px;color:#67716b}
+.cg-poker-seat.folded{opacity:.45}
+.cg-hole{display:flex;gap:3px;margin-top:5px}
+.cg-hole .cg-card{width:42px;height:60px;border-radius:6px;padding:2px}
+.cg-hole .cg-card-rank{font-size:14px}.cg-hole .cg-card-suit{font-size:17px}
+.cg-community{display:flex;justify-content:center;gap:6px;flex-wrap:wrap}
+.cg-community .cg-card,.cg-card-placeholder{width:58px;height:82px}
+.cg-card-placeholder{display:grid;place-items:center;border:1px dashed #a9b2aa;border-radius:9px;color:#7b887d;background:rgba(255,255,255,.34);font-size:22px}
+.cg-pot{font-size:12px;font-weight:800;letter-spacing:1px;color:#47584b}
+.cg-message{font-size:12px;color:#5f6b62;text-align:center;min-height:18px}
+.cg-enemy{width:min(100%,440px);padding:16px;border:1px solid #d6c4bd;border-radius:13px;background:linear-gradient(145deg,#493b3a,#282d37);color:#fff;text-align:center;box-shadow:0 7px 18px rgba(25,25,25,.15)}
+.cg-enemy.boss{background:linear-gradient(145deg,#5b3131,#28202a);border-color:#9b5550}
+.cg-enemy-type{font-size:10px;letter-spacing:1.8px;color:#e4b8a9;font-weight:800}
+.cg-enemy h3{font-size:19px;margin:4px 0}
+.cg-enemy-hp{font-size:13px}
+.cg-health-track{height:9px;width:100%;overflow:hidden;border-radius:99px;background:rgba(0,0,0,.18);margin-top:6px}
+.cg-health-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,#c75a4f,#e49a67)}
+.cg-heroes{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;width:100%}
+.cg-hero{padding:9px;border:1px solid #d1d8d3;border-radius:9px;background:rgba(255,255,255,.88);display:flex;flex-direction:column;gap:3px;font-size:12px}
+.cg-hero small{color:#68736b}
+.cg-hero.dead{opacity:.42;filter:grayscale(1)}
+.cg-log{width:100%;display:flex;flex-direction:column;gap:4px;font-size:11px;color:#58645b}
+.cg-log div{padding:4px 7px;background:rgba(255,255,255,.52);border-radius:5px}
+.cg-dungeon-card{width:104px;min-height:112px;padding:9px 7px;border:1px solid #c5cbd0;border-radius:10px;background:#fff;box-shadow:0 3px 8px rgba(25,35,45,.1);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;cursor:pointer}
+.cg-dungeon-card b{font-size:12px;text-align:center}.cg-dungeon-card span,.cg-dungeon-card small{font-size:10px;color:#68717b}
+.cg-dungeon-card.attack{border-top:4px solid #bb554c}.cg-dungeon-card.guard{border-top:4px solid #4c729c}.cg-dungeon-card.heal{border-top:4px solid #5b956b}.cg-dungeon-card.fire,.cg-dungeon-card.poison{border-top:4px solid #a27a45}
+.cg-dungeon-card:disabled{opacity:.4;cursor:default}
+.cg-map{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px;width:min(100%,560px)}
+.cg-territory{aspect-ratio:1;min-width:0;border:2px solid rgba(255,255,255,.8);border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:#35433a;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(30,45,35,.1);padding:3px}
+.cg-territory b{font-size:16px}.cg-territory span{font-size:12px;font-weight:750}.cg-territory small{font-size:9px;color:rgba(35,50,40,.75)}
+.cg-territory.neutral{background:#e3e5d7}.cg-territory.terrain-0{background-color:#c7d9b9}.cg-territory.terrain-1{background-color:#a9c5a5}.cg-territory.terrain-2{background-color:#b6bdc4}
+.cg-territory.owner-0{box-shadow:inset 0 0 0 3px #355f91}.cg-territory.owner-1{box-shadow:inset 0 0 0 3px #b84b45}.cg-territory.owner-2{box-shadow:inset 0 0 0 3px #4d8159}.cg-territory.owner-3{box-shadow:inset 0 0 0 3px #b88630}
+.cg-territory.selected{outline:3px solid #f0c65e;outline-offset:1px}.cg-territory.source{outline:3px solid #355f91;outline-offset:1px}
+.cg-territory:disabled{cursor:default;opacity:.85}
+.cg-king-info{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
+.cg-king-info .player-0{border-color:#355f91}.cg-king-info .player-1{border-color:#b84b45}.cg-king-info .player-2{border-color:#4d8159}.cg-king-info .player-3{border-color:#b88630}
+.cg-strategy-card{min-width:105px;min-height:76px;padding:9px;border:1px solid #c5cbd0;border-radius:10px;background:#fff;box-shadow:0 3px 8px rgba(25,35,45,.1);font-size:12px;font-weight:750;cursor:pointer}
+.cg-strategy-card.selected{outline:3px solid #e4b84d;border-color:#c59a3b}
+.cg-strategy-card:disabled{opacity:.45}
+@media(max-width:600px){
+  .cg-heading{font-size:19px}
+  .cg-table{padding:9px;gap:10px}
+  .cg-card{width:55px;height:80px;border-radius:7px}
+  .cg-card-rank{font-size:18px}.cg-card-suit{font-size:22px}
+  .cg-empty-card{width:53px;height:78px}
+  .cg-color-card{width:56px;height:80px}
+  .cg-poker-seats{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .cg-community .cg-card,.cg-card-placeholder{width:46px;height:66px}
+  .cg-dungeon-card{width:calc(33.333% - 7px);min-width:88px;min-height:100px}
+  .cg-territory{border-radius:6px}
+  .cg-territory b{font-size:13px}.cg-territory span{font-size:10px}.cg-territory small{font-size:8px}
+  .cg-map{gap:3px}
+}

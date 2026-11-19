@@ -4,6 +4,8 @@ const http = require('node:http');
 const { WebSocket, WebSocketServer } = require('ws');
 
 const VALID_CODE = /^[A-HJ-NP-Z2-9]{5}$/;
+const MIN_PLAYERS = 2;
+const MAX_PLAYERS = 4;
 const MAX_ROOMS = 500;
 const MAX_CLIENTS = 1000;
 const MAX_MESSAGES_PER_MINUTE = 600;
@@ -13,11 +15,12 @@ function createApp() {
 
   const server = http.createServer((req, res) => {
     if (req.url === '/health' || req.url === '/') {
+      const activePlayers = [...rooms.values()].reduce((sum, room) => sum + room.players.length, 0);
       res.writeHead(200, {
         'Content-Type': 'application/json; charset=utf-8',
         'Cache-Control': 'no-store',
       });
-      res.end(JSON.stringify({ ok: true, service: 'banan-multiplayer', rooms: rooms.size }));
+      res.end(JSON.stringify({ ok: true, service: 'banan-multiplayer', rooms: rooms.size, players: activePlayers }));
       return;
     }
     res.writeHead(404);
@@ -41,28 +44,52 @@ function createApp() {
     send(socket, { t: 'error', code });
   }
 
+  function syncRoom(room, type) {
+    room.players.forEach((player, role) => {
+      player.role = role;
+      send(player, {
+        t: type,
+        role,
+        host: role === 0,
+        players: room.players.length,
+        maxPlayers: room.maxPlayers,
+        code: player.room,
+      });
+    });
+  }
+
   function detach(socket) {
     if (!socket.room) return;
 
     const code = socket.room;
     const room = rooms.get(code);
+    const oldRole = socket.role;
     socket.room = null;
     socket.role = null;
     if (!room) return;
 
-    if (room.host === socket) {
+    const index = room.players.indexOf(socket);
+    if (index < 0) return;
+    room.players.splice(index, 1);
+
+    if (room.players.length === 0) {
       rooms.delete(code);
-      if (room.guest) {
-        const guest = room.guest;
-        guest.room = null;
-        guest.role = null;
-        send(guest, { t: 'peer_left' });
-        guest.close(1000, 'Host left');
-      }
-    } else if (room.guest === socket) {
-      room.guest = null;
-      send(room.host, { t: 'peer_left' });
+      return;
     }
+
+    // The first remaining participant becomes the host. Roles are compacted
+    // and sent with the same event so every client agrees on the new order.
+    room.players.forEach((player, role) => {
+      player.role = role;
+      send(player, {
+        t: 'peer_left',
+        role,
+        host: role === 0,
+        players: room.players.length,
+        maxPlayers: room.maxPlayers,
+        departedRole: oldRole,
+      });
+    });
   }
 
   wss.on('connection', socket => {
@@ -108,10 +135,14 @@ function createApp() {
         }
         if (rooms.has(msg.code)) { error(socket, 'code_taken'); return; }
         if (rooms.size >= MAX_ROOMS) { error(socket, 'server_busy'); return; }
-        rooms.set(msg.code, { host: socket, guest: null });
+        const requested = Number(msg.maxPlayers);
+        const maxPlayers = Number.isInteger(requested) && requested >= MIN_PLAYERS && requested <= MAX_PLAYERS
+          ? requested : MIN_PLAYERS;
+        const room = { players: [socket], maxPlayers };
+        rooms.set(msg.code, room);
         socket.room = msg.code;
-        socket.role = 'host';
-        send(socket, { t: 'hosted', code: msg.code });
+        socket.role = 0;
+        send(socket, { t: 'hosted', code: msg.code, players: 1, maxPlayers });
         return;
       }
 
@@ -122,32 +153,35 @@ function createApp() {
           return;
         }
         const room = rooms.get(msg.code);
-        if (!room || room.host.readyState !== WebSocket.OPEN) {
+        if (!room || room.players[0]?.readyState !== WebSocket.OPEN) {
           error(socket, 'room_not_found');
           return;
         }
-        if (room.guest) { error(socket, 'room_full'); return; }
-        room.guest = socket;
+        if (room.players.length >= room.maxPlayers) { error(socket, 'room_full'); return; }
         socket.room = msg.code;
-        socket.role = 'guest';
-        send(room.host, { t: 'ready', role: 0, code: msg.code });
-        send(socket, { t: 'ready', role: 1, code: msg.code });
+        socket.role = room.players.length;
+        room.players.push(socket);
+        syncRoom(room, 'ready');
         return;
       }
 
       if (msg.t === 'data') {
         const room = rooms.get(socket.room);
-        if (!room || (room.host !== socket && room.guest !== socket)) {
+        if (!room || !room.players.includes(socket)) {
           error(socket, 'not_connected');
           return;
         }
-        const partner = room.host === socket ? room.guest : room.host;
-        if (!partner) { error(socket, 'not_connected'); return; }
         if (!msg.payload || typeof msg.payload !== 'object' || Array.isArray(msg.payload)) {
           error(socket, 'invalid_message');
           return;
         }
-        send(partner, { t: 'data', payload: msg.payload });
+        if (msg.payload.t === 'start' && socket !== room.players[0]) {
+          error(socket, 'not_host');
+          return;
+        }
+        room.players.forEach(player => {
+          if (player !== socket) send(player, { t: 'data', payload: msg.payload });
+        });
         return;
       }
 

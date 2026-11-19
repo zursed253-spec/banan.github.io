@@ -3,14 +3,18 @@ on:
   push:
     paths:
       - "games-extra.js"
+      - "games-cards.js"
       - "games-extra.css"
       - "tests/extra-games.test.cjs"
+      - "tests/game-cards.test.cjs"
       - ".github/workflows/extra-games-test.yml"
   pull_request:
     paths:
       - "games-extra.js"
+      - "games-cards.js"
       - "games-extra.css"
       - "tests/extra-games.test.cjs"
+      - "tests/game-cards.test.cjs"
       - ".github/workflows/extra-games-test.yml"
 jobs:
   extra-games:
@@ -21,4 +25,5 @@ jobs:
         with:
           node-version: '22'
       - run: node --check games-extra.js
-      - run: node --test tests/extra-games.test.cjs
+      - run: node --check games-cards.js
+      - run: node --test tests/extra-games.test.cjs tests/game-cards.test.cjs

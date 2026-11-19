@@ -53,3 +53,59 @@ test('health, join, collision, relay and reconnection',async t=>{
   assert.equal((await rejoined).role,1);
   host.close();
 });
+
+
+test('four-player rooms assign stable seats, broadcast to everyone and promote a new host',async t=>{
+  const {server,wss,rooms}=createApp();
+  await new Promise(ok=>server.listen(0,'127.0.0.1',ok));
+  t.after(async()=>{
+    for(const s of wss.clients)s.terminate();
+    await new Promise(ok=>server.close(ok));
+  });
+  const url='ws://127.0.0.1:'+server.address().port+'/ws';
+  const players=await Promise.all([connect(url),connect(url),connect(url),connect(url),connect(url)]);
+  const [host,p1,p2,p3,outsider]=players;
+
+  const hosted=waitFor(host,m=>m.t==='hosted');
+  host.send(JSON.stringify({t:'host',code:'FGHJK',maxPlayers:4}));
+  const hostRoom=await hosted;
+  assert.equal(hostRoom.maxPlayers,4);
+  assert.equal(hostRoom.players,1);
+
+  for(const [socket,expectedCount] of [[p1,2],[p2,3],[p3,4]]){
+    const ready=players.slice(0,expectedCount).map(s=>waitFor(s,m=>m.t==='ready'&&m.players===expectedCount));
+    socket.send(JSON.stringify({t:'join',code:'FGHJK'}));
+    const messages=await Promise.all(ready);
+    assert.deepEqual(messages.map(m=>m.role).sort(),Array.from({length:expectedCount},(_,i)=>i));
+    assert.ok(messages.every(m=>m.maxPlayers===4));
+  }
+  assert.equal(rooms.get('FGHJK').players.length,4);
+
+  const full=waitFor(outsider,m=>m.t==='error');
+  outsider.send(JSON.stringify({t:'join',code:'FGHJK'}));
+  assert.equal((await full).code,'room_full');
+
+  const broadcasts=[host,p1,p3].map(s=>waitFor(s,m=>m.t==='data'&&m.payload?.d?.move===17));
+  p2.send(JSON.stringify({t:'data',payload:{t:'g',n:9,d:{move:17}}}));
+  const relayed=await Promise.all(broadcasts);
+  assert.ok(relayed.every(m=>m.payload.d.move===17),'one move reaches every other player');
+
+  const peerLeft=[p1,p2,p3].map(s=>waitFor(s,m=>m.t==='peer_left'&&m.players===3));
+  host.close();
+  const updates=await Promise.all(peerLeft);
+  assert.deepEqual(updates.map(m=>m.role).sort(),[0,1,2]);
+  assert.equal(updates.find(m=>m.role===0).host,true);
+  assert.equal(rooms.get('FGHJK').players.length,3);
+
+  const promoted=updates.find((m,i)=>m.role===0?true:false);
+  assert.ok(promoted,'one of the remaining players is promoted to host');
+  const notHost=waitFor(p2,m=>m.t==='error'&&m.code==='not_host');
+  p2.send(JSON.stringify({t:'data',payload:{t:'start',game:'durak'}}));
+  assert.equal((await notHost).code,'not_host');
+
+  const startRelay=waitFor(p2,m=>m.t==='data'&&m.payload?.t==='start');
+  p1.send(JSON.stringify({t:'data',payload:{t:'start',game:'durak',players:3}}));
+  assert.equal((await startRelay).payload.players,3);
+
+  for(const s of players)if(s.readyState===WebSocket.OPEN)s.close();
+});
