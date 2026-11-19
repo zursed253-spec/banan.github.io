@@ -1,0 +1,24 @@
+name: Extra games tests
+on:
+  push:
+    paths:
+      - "games-extra.js"
+      - "games-extra.css"
+      - "tests/extra-games.test.cjs"
+      - ".github/workflows/extra-games-test.yml"
+  pull_request:
+    paths:
+      - "games-extra.js"
+      - "games-extra.css"
+      - "tests/extra-games.test.cjs"
+      - ".github/workflows/extra-games-test.yml"
+jobs:
+  extra-games:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check games-extra.js
+      - run: node --test tests/extra-games.test.cjs
