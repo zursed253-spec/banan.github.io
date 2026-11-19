@@ -93,6 +93,7 @@ test('Poker evaluator ranks straight flush above quads and detects wheel straigh
   assert.ok(rules.comparePoker(rules.evaluateFive(sf),rules.evaluateFive(quads))>0);
   const wheel=[{rank:14,suit:'♠'},{rank:2,suit:'♥'},{rank:3,suit:'♦'},{rank:4,suit:'♣'},{rank:5,suit:'♠'}];
   assert.deepEqual(Array.from(rules.evaluateFive(wheel)),[4,5]);
+  assert.equal(sandbox.window.BananCardRules.evaluateFive([{rank:14,suit:'♠'},{rank:14,suit:'♥'},{rank:14,suit:'♦'},{rank:14,suit:'♣'},{rank:2,suit:'♠'}])[0],7);
 });
 
 test('Kingdom map adjacency is orthogonal, not diagonal',()=>{

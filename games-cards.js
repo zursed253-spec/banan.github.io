@@ -5,7 +5,7 @@
   const SUITS = ['♠','♥','♦','♣'];
   const COLORS = ['#26384d','#b43b3b','#b43b3b','#26384d'];
   const PALETTE = ['#355f91','#c04c45','#4d8159','#c18b35'];
-  const RANKS = ['','A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+  const RANKS = ['','A','2','3','4','5','6','7','8','9','10','J','Q','K','A'];
   const node = (tag, cls, value) => {
     const e = document.createElement(tag);
     if (cls) e.className = cls;
@@ -493,7 +493,7 @@
       else if(state.stage==='turn'){state.board.push(state.deck.pop());state.stage='river';}
       else {showdown();return;}
       state.bets=Array(N).fill(0);state.currentBet=0;state.acted=Array(N).fill(false);
-      const next=nextSeat(state.dealer,N,1,p=>!state.folded[p]&&state.chips[p]>0);
+      const next=N===2&&!state.folded[state.dealer]&&state.chips[state.dealer]>0?state.dealer:nextSeat(state.dealer,N,1,p=>!state.folded[p]&&state.chips[p]>0);
       if(next<0){runout();return;}
       state.toAct=next;render();scheduleBot();
     }
