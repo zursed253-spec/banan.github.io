@@ -209,7 +209,7 @@ function renderCards(){
     const d=el('div');
     d.appendChild(el('h3','',g.name));d.appendChild(el('p','',g.desc));
     if(g.id==='vanish')d.appendChild(el('span','tag','НОВИНКА · 36 мемов'));
-    d.appendChild(el('span','tag',min===1?'1–4 игрока · есть боты':min+'–'+max+' игрока'));
+    d.appendChild(el('span','tag',min===1?'1–4 игрока · соло / компания':(min===max?min+' игрока':min+'–'+max+' игрока')));
     b.appendChild(d);
     b.onclick=()=>{
       if(!ready){toast('Для этой игры нужно '+min+'–'+max+' участников');return;}
