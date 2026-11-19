@@ -180,7 +180,7 @@ function createApp() {
           return;
         }
         room.players.forEach(player => {
-          if (player !== socket) send(player, { t: 'data', payload: msg.payload });
+          if (player !== socket) send(player, { t: 'data', payload: msg.payload, from: socket.role });
         });
         return;
       }

@@ -327,3 +327,5 @@ body.danger-flash{animation:dangerShake .38s ease-in-out}
   .cg-territory b{font-size:13px}.cg-territory span{font-size:10px}.cg-territory small{font-size:8px}
   .cg-map{gap:3px}
 }
+
+.cg-color-dot.color-0{background:#355f91}.cg-color-dot.color-1{background:#bd4945}.cg-color-dot.color-2{background:#4d8159}.cg-color-dot.color-3{background:#b88630}

@@ -44,7 +44,9 @@ test('health, join, collision, relay and reconnection',async t=>{
   assert.equal((await full).code,'room_full');
   const relayed=waitFor(guest,m=>m.t==='data');
   host.send(JSON.stringify({t:'data',payload:{t:'g',n:1,d:{m:3}}}));
-  assert.deepEqual((await relayed).payload,{t:'g',n:1,d:{m:3}});
+  const relayedMessage=await relayed;
+  assert.deepEqual(relayedMessage.payload,{t:'g',n:1,d:{m:3}});
+  assert.equal(relayedMessage.from,0,'the relay identifies the sending seat');
   const left=waitFor(host,m=>m.t==='peer_left');
   guest.close();
   assert.equal((await left).t,'peer_left');
@@ -89,6 +91,7 @@ test('four-player rooms assign stable seats, broadcast to everyone and promote a
   p2.send(JSON.stringify({t:'data',payload:{t:'g',n:9,d:{move:17}}}));
   const relayed=await Promise.all(broadcasts);
   assert.ok(relayed.every(m=>m.payload.d.move===17),'one move reaches every other player');
+  assert.ok(relayed.every(m=>m.from===2),'the server attaches the sender seat');
 
   const peerLeft=[p1,p2,p3].map(s=>waitFor(s,m=>m.t==='peer_left'&&m.players===3));
   host.close();

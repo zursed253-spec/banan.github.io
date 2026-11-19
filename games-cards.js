@@ -250,7 +250,7 @@
     state.defender=nextPlayer(state.attacker);
     state.turn=state.attacker;
     render();scheduleBot();
-    ctx.onMsg=d=>{if(d&&d.g==='durak'&&d.seq===seq+1){if(apply(d)){seq=d.seq;render();scheduleBot();}}};
+    ctx.onMsg=d=>{if(d&&d.g==='durak'&&d.seq===seq+1&&d._from===state.turn){if(apply(d)){seq=d.seq;render();scheduleBot();}}};
   }
 
   function makeLastDeck(){
@@ -362,7 +362,7 @@
           b.addEventListener('click',()=>{
             if(c.color===null){
               selectedWild=i;render();
-            }else commit({type:'play',index:i,color:c.color},false);
+            }else{selectedWild=-1;commit({type:'play',index:i,color:c.color},false);}
           });
           row.appendChild(b);
         });
@@ -387,7 +387,7 @@
     state.top=state.deck.splice(topIndex,1)[0];state.color=state.top.color;
     state.turn=ctx.players===1?0:ctx.first%N;
     render();scheduleBot();
-    ctx.onMsg=d=>{if(d&&d.g==='lastcard'&&d.seq===seq+1){if(apply(d)){seq=d.seq;render();scheduleBot();}}};
+    ctx.onMsg=d=>{if(d&&d.g==='lastcard'&&d.seq===seq+1&&d._from===state.turn){if(apply(d)){seq=d.seq;render();scheduleBot();}}};
   }
 
   function evaluateFive(cards){
@@ -581,7 +581,7 @@
       ctx.turn(state.toAct,state.stage==='between'?'Можно начать следующую раздачу':'Выберите действие');
     }
     startHand(true);
-    ctx.onMsg=d=>{if(d&&d.g==='poker'&&d.seq===seq+1){if(apply(d)){seq=d.seq;render();scheduleBot();}}};
+    ctx.onMsg=d=>{if(d&&d.g==='poker'&&d.seq===seq+1&&d._from===state.turn){if(apply(d)){seq=d.seq;render();scheduleBot();}}};
   }
 
   const DUNGEON_CARDS=[
@@ -707,7 +707,7 @@
       draw(p,5);
     });
     spawnEnemy();render();
-    ctx.onMsg=d=>{if(d&&d.g==='dungeon'&&d.seq===seq+1){if(apply(d)){seq=d.seq;render();}}};
+    ctx.onMsg=d=>{if(d&&d.g==='dungeon'&&d.seq===seq+1&&d._from===state.turn){if(apply(d)){seq=d.seq;render();}}};
   }
 
   const KING_CARDS=['recruit','claim','march','fortify','tax','scout','march','claim'];
@@ -855,7 +855,7 @@
       }else commit({type:'play',player:state.turn,index:state.selected,target:id},false);
     }
     render();scheduleBot();
-    ctx.onMsg=d=>{if(d&&d.g==='kingdom'&&d.seq===seq+1){if(apply(d)){seq=d.seq;render();scheduleBot();}}};
+    ctx.onMsg=d=>{if(d&&d.g==='kingdom'&&d.seq===seq+1&&d._from===state.turn&&d.player===state.turn){if(apply(d)){seq=d.seq;render();scheduleBot();}}};
   }
 
   function registerCardGames(Games,LIST,el){

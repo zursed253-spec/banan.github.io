@@ -372,7 +372,7 @@ function onData(m){
   if(m.t==='req'){if(Net.role===0&&LIST.some(g=>g.id===m.game))hostStart(m.game);}
   else if(m.t==='start'){launch(m.game,m.first,m.n,m.players);}
   else if(m.t==='menu'){showHub();}
-  else if(m.t==='g'){if(cur&&m.n===cur.n&&cur.ctx.onMsg)cur.ctx.onMsg(m.d);}
+  else if(m.t==='g'){if(cur&&m.n===cur.n&&cur.ctx.onMsg)cur.ctx.onMsg(Object.assign({},m.d,{_from:m.from}));}
 }
 function hostStart(id){
   const game=LIST.find(item=>item.id===id);
