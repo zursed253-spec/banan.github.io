@@ -145,14 +145,35 @@ input[type=text],#iCode{border:1px solid #b9bdc2;border-radius:4px;padding:8px 1
   </section>
 </div>
 
-<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
 <script>
 (()=>{
 'use strict';
 const $=s=>document.querySelector(s);
 const el=(t,c,x)=>{const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e;};
 const chip=p=>el('span','chip p'+p);
-const PREFIX='sgzal7-';
+const DEFAULT_SERVER='wss://banan-zursed253-spec-relay.onrender.com/ws';
+const serverParam=new URLSearchParams(location.search).get('server');
+const readServer=()=>{try{return localStorage.getItem('banan-server')||DEFAULT_SERVER;}catch{return DEFAULT_SERVER;}};
+let serverURL=serverParam||readServer();
+function normalizeServer(input){
+  let s=String(input||'').trim();
+  if(!s)throw Error('Введите адрес сервера');
+  if(!/^https?:\/\//i.test(s)&&!/^wss?:\/\//i.test(s))s='https://'+s;
+  const u=new URL(s);
+  if(u.protocol==='https:')u.protocol='wss:';
+  if(u.protocol==='http:')u.protocol='ws:';
+  if(u.protocol!=='wss:'&&u.protocol!=='ws:')throw Error('Нужен адрес HTTPS или WSS');
+  if(u.protocol==='ws:'&&u.hostname!=='localhost'&&u.hostname!=='127.0.0.1')throw Error('Для публичного сайта нужен HTTPS');
+  if(u.username||u.password||u.search||u.hash)throw Error('Уберите пароль и параметры из адреса');
+  u.pathname=u.pathname.replace(/\/+$/,'')||'/ws';
+  if(u.pathname==='/')u.pathname='/ws';
+  return u.href;
+}
+try{serverURL=normalizeServer(serverURL);}catch{serverURL=DEFAULT_SERVER;}
+function persistServer(url){
+  serverURL=url;
+  try{localStorage.setItem('banan-server',url);}catch{}
+}
 const Games={};
 let cur=null,scores={},seq=0;
 const Net={state:'idle',open:false,peer:null,conn:null,role:0,code:'',msg:'',timer:null};
@@ -194,11 +215,12 @@ function renderCards(){
 
 function renderConn(){
   const p=$('#conn');let h='';
-  const link=()=>location.href.split('?')[0].split('#')[0]+'?room='+Net.code;
+  const link=()=>location.href.split('?')[0].split('#')[0]+'?room='+Net.code+'&server='+encodeURIComponent(serverURL);
   if(Net.state==='idle'){
     h='<div class="conn-grid"><div><div class="lbl">Онлайн с другом</div>'+
       '<div class="line"><button class="btn primary" id="bHost">Создать комнату</button></div>'+
-      '<div class="line"><input id="iCode" maxlength="5" placeholder="Код комнаты" autocomplete="off"><button class="btn" id="bJoin">Войти</button></div></div>'+
+      '<div class="line"><input id="iCode" maxlength="5" placeholder="Код комнаты" autocomplete="off"><button class="btn" id="bJoin">Войти</button></div>'+ 
+      '<div class="hint">Сервер игры (Render):</div><div class="line"><input id="iServer" type="text" autocomplete="url" spellcheck="false" style="width:min(100%,390px);text-transform:none;letter-spacing:normal" placeholder="https://имя.onrender.com"></div><p class="hint">Обычно менять адрес не нужно. После создания сервиса Render укажи здесь его адрес один раз.</p></div>'+
       '<div><div class="lbl">Один экран</div><p class="hint">Двое играют по очереди на одном устройстве. Морской бой в этом режиме недоступен.</p>'+
       '<button class="btn" id="bLocal">Играть вдвоём</button></div></div>';
   }else if(Net.state==='hosting'){
@@ -217,9 +239,11 @@ function renderConn(){
   const on=(id,fn)=>{const e=$('#'+id);if(e)e.onclick=fn;};
   on('bHost',startHost);
   on('bJoin',()=>join($('#iCode').value));
+  const serverInput=$('#iServer');
+  if(serverInput){serverInput.value=serverURL.replace(/^wss:\/\//,'https://').replace(/\/ws$/,'');serverInput.onchange=()=>{try{persistServer(normalizeServer(serverInput.value));Net.msg='Адрес сервера сохранён.';}catch(e){Net.msg=e.message;}renderConn();};}
   on('bLocal',startLocal);
   on('bCancel',()=>{resetNet();renderConn();showHub();});
-  on('bCopy',()=>{try{navigator.clipboard.writeText(link());toast('Ссылка скопирована');}catch(e){toast('Скопируйте ссылку вручную: '+link());}});
+  on('bCopy',async()=>{try{await navigator.clipboard.writeText(link());toast('Ссылка скопирована');}catch(e){window.prompt('Скопируйте ссылку:',link());}});
   const ic=$('#iCode');if(ic)ic.onkeydown=e=>{if(e.key==='Enter')join(ic.value);};
   const on_=Net.state==='connected'||Net.state==='local';
   $('#netDot').className='dot'+(on_?' on':'');
@@ -233,76 +257,105 @@ function showHub(){
 }
 
 /* ====================== СЕТЬ ====================== */
-function genCode(){const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';let s='';for(let i=0;i<5;i++)s+=a[Math.floor(Math.random()*a.length)];return s;}
+function genCode(){
+  const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let s='';
+  for(let i=0;i<5;i++)s+=a[Math.floor(Math.random()*a.length)];
+  return s;
+}
 function resetNet(){
   clearTimeout(Net.timer);
-  const c=Net.conn,p=Net.peer;
-  Net.conn=null;Net.peer=null;Net.state='idle';Net.open=false;Net.code='';Net.msg='';scores={};
-  try{c&&c.close();}catch(e){}
-  try{p&&p.destroy();}catch(e){}
+  const socket=Net.peer;
+  Net.peer=null;Net.conn=null;Net.state='idle';Net.open=false;Net.code='';Net.msg='';scores={};
+  if(socket){try{socket.close();}catch(e){}}
 }
 function fail(e){
   const t=e&&e.type;
-  let m='Ошибка соединения'+(t?': '+t:'.');
-  if(t==='peer-unavailable')m='Комната не найдена. Проверьте код.';
-  else if(t==='timeout')m='Не удалось соединиться. Возможно, сеть блокирует прямое соединение между устройствами.';
-  else if(t==='network'||t==='server-error'||t==='socket-error'||t==='socket-closed')m='Нет связи с сервером соединения. Проверьте интернет.';
+  let m='Ошибка соединения. Попробуйте ещё раз.';
+  if(t==='room_not_found')m='Комната не найдена. Проверьте код и попросите друга создать комнату.';
+  else if(t==='room_full')m='В комнате уже два игрока.';
+  else if(t==='timeout')m='Сервер долго отвечает. Бесплатный Render может запускаться около минуты. Попробуйте ещё раз.';
+  else if(t==='invalid_code')m='Код комнаты должен содержать пять букв или цифр.';
+  else if(t==='server_busy')m='Сервер занят. Попробуйте позже.';
+  else if(t==='not_connected')m='Соперник пока не подключён.';
+  else if(t==='socket_error')m='Не удалось открыть WebSocket. Проверьте, запущен ли сервер Render и правильно ли указан адрес.';
+  else if(t==='socket_closed')m='Соединение с сервером прервано. Обновите страницу или попробуйте позже.';
   resetNet();Net.msg=m;renderConn();showHub();
 }
-function needPeer(){
-  if(typeof Peer==='undefined'){Net.msg='Не удалось загрузить библиотеку соединения. Проверьте интернет и обновите страницу.';renderConn();return false;}
-  return true;
+function sendSignal(value){
+  if(Net.peer&&Net.peer.readyState===WebSocket.OPEN){
+    Net.peer.send(JSON.stringify(value));
+    return true;
+  }
+  return false;
 }
-function startHost(){
-  if(!needPeer())return;
+function connectServer(mode,code){
   resetNet();
-  const go=()=>{
-    Net.code=genCode();Net.state='hosting';Net.role=0;Net.open=false;
-    const p=new Peer(PREFIX+Net.code);Net.peer=p;
-    p.on('open',()=>{if(Net.peer===p){Net.open=true;renderConn();}});
-    p.on('connection',c=>{
-      if(Net.conn||Net.state!=='hosting'){c.on('open',()=>c.close());return;}
-      attach(c);
-    });
-    p.on('disconnected',()=>{try{p.reconnect();}catch(e){}});
-    p.on('error',e=>{
-      if(Net.peer!==p)return;
-      if(e.type==='unavailable-id'){try{p.destroy();}catch(x){}go();return;}
-      fail(e);
-    });
-    renderConn();
+  Net.code=code;Net.role=mode==='host'?0:1;Net.state=mode==='host'?'hosting':'joining';
+  Net.open=false;
+  let socket;
+  try{socket=new WebSocket(serverURL);}catch(e){fail({type:'socket_error'});return;}
+  Net.peer=socket;
+  Net.timer=setTimeout(()=>{if(Net.peer===socket&&Net.state!=='connected')fail({type:'timeout'});},75000);
+  socket.onopen=()=>{
+    if(Net.peer!==socket)return;
+    sendSignal({t:mode,code:Net.code});
   };
-  go();
-}
-function join(code){
-  code=(code||'').trim().toUpperCase();
-  if(!code)return;
-  if(!needPeer())return;
-  resetNet();
-  Net.state='joining';Net.code=code;Net.role=1;
-  const p=new Peer();Net.peer=p;
-  p.on('open',()=>{if(Net.peer===p)attach(p.connect(PREFIX+code,{reliable:true}));});
-  p.on('error',e=>{if(Net.peer===p)fail(e);});
-  Net.timer=setTimeout(()=>{if(Net.state==='joining')fail({type:'timeout'});},15000);
+  socket.onmessage=event=>{
+    if(Net.peer!==socket)return;
+    let msg;
+    try{msg=JSON.parse(event.data);}catch{return;}
+    if(msg.t==='hosted'){
+      Net.open=true;Net.msg='';clearTimeout(Net.timer);renderConn();
+    }else if(msg.t==='ready'){
+      clearTimeout(Net.timer);Net.open=true;Net.state='connected';
+      Net.role=msg.role;scores={};Net.msg='';
+      Net.conn={open:true,send(value){return sendSignal({t:'data',payload:value});}};
+      renderConn();toast('Соединение установлено');
+    }else if(msg.t==='peer_left'){
+      Net.conn=null;scores={};showHub();
+      if(Net.role===0){
+        Net.state='hosting';Net.open=true;
+        Net.msg='Друг отключился. Комната остаётся открытой — можно подключиться снова.';
+        renderConn();
+      }else fail({type:'socket_closed'});
+    }else if(msg.t==='data'){
+      if(Net.state==='connected')onData(msg.payload);
+    }else if(msg.t==='error'){
+      if(msg.code==='code_taken'&&mode==='host'&&Net.state==='hosting'){
+        Net.code=genCode();Net.open=false;
+        sendSignal({t:'host',code:Net.code});
+      }else if(msg.code==='not_connected'){
+        Net.msg='Ожидаем подключения друга.';renderConn();
+      }else fail({type:msg.code});
+    }
+  };
+  socket.onerror=()=>{if(Net.peer===socket)fail({type:'socket_error'});};
+  socket.onclose=()=>{if(Net.peer===socket)fail({type:'socket_closed'});};
   renderConn();
 }
-function startLocal(){resetNet();Net.state='local';renderConn();}
-function attach(c){
-  const onOpen=()=>{
-    clearTimeout(Net.timer);
-    Net.conn=c;Net.state='connected';scores={};Net.msg='';
-    renderConn();toast('Соединение установлено');
-  };
-  if(c.open)onOpen();else c.on('open',onOpen);
-  c.on('data',onData);
-  c.on('close',()=>{
-    if(Net.conn===c){resetNet();Net.msg='Соединение потеряно.';renderConn();showHub();}
-  });
-  c.on('error',e=>{if(Net.conn===c||Net.state==='joining')fail(e);});
+function startHost(){
+  try{
+    const inp=$('#iServer');
+    if(inp)persistServer(normalizeServer(inp.value));
+  }catch(e){Net.msg=e.message;renderConn();return;}
+  connectServer('host',genCode());
 }
+function join(code){
+  code=String(code||'').trim().toUpperCase();
+  if(!/^[A-HJ-NP-Z2-9]{5}$/.test(code)){
+    Net.msg='Введите правильный код из пяти символов.';renderConn();return;
+  }
+  try{
+    const inp=$('#iServer');
+    if(inp)persistServer(normalizeServer(inp.value));
+  }catch(e){Net.msg=e.message;renderConn();return;}
+  connectServer('join',code);
+}
+function startLocal(){resetNet();Net.state='local';renderConn();}
 function onData(m){
-  if(!m)return;
-  if(m.t==='req'){if(Net.role===0)hostStart(m.game);}
+  if(!m||typeof m!=='object')return;
+  if(m.t==='req'){if(Net.role===0&&LIST.some(g=>g.id===m.game))hostStart(m.game);}
   else if(m.t==='start'){launch(m.game,m.first,m.n);}
   else if(m.t==='menu'){showHub();}
   else if(m.t==='g'){if(cur&&m.n===cur.n&&cur.ctx.onMsg)cur.ctx.onMsg(m.d);}
