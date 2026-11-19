@@ -13,9 +13,11 @@
       board(ctx, description, cls) {
         const root = ctx.root;
         root.textContent = '';
+        const stage = U.make('div', 'x-stage');
         const note = U.make('p', 'x-note', description);
         const area = U.make('div', 'x-area ' + (cls || ''));
-        root.append(note, area);
+        stage.append(note, area);
+        root.append(stage);
         return { area, note };
       },
       button(cls, title, fn) {
