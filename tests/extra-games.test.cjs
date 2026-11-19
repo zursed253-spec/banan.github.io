@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const vm = require('node:vm');
 const fs = require('node:fs');
 class Node {
-  constructor(tag){this.tagName=tag;this.children=[];this.listeners={};this._text='';this.className='';this.style={};this.attrs={};this.disabled=false;}
+  constructor(tag){this.tagName=tag;this.children=[];this.listeners={};this._text='';this.className='';this.style={};this.attrs={};this.dataset={};this.disabled=false;}
   set textContent(s){this._text=String(s);this.children=[];}
   get textContent(){return this._text + this.children.map(x=>x.textContent).join('');}
   append(...xs){this.children.push(...xs);}
@@ -10,18 +10,20 @@ class Node {
   setAttribute(k,v){this.attrs[k]=String(v);}
   addEventListener(event,cb){(this.listeners[event]??=[]).push(cb);}
   click(){for(let cb of this.listeners.click||[])cb();}
-  get classList(){return {add:c=>{this.className+=' '+c;}}}
+  get classList(){return {add:c=>{this.className+=' '+c;},toggle:(c,on)=>{if(on && !this.className.split(' ').includes(c))this.className+=' '+c;}}}
 }
-const window={};
-const sandbox={window,document:{createElement:x=>new Node(x),createElementNS:(ns,x)=>new Node(x)},console,setTimeout,clearTimeout,Math};
+const window={addEventListener(){},removeEventListener(){}};
+const sandbox={window,document:{createElement:x=>new Node(x),createElementNS:(ns,x)=>new Node(x)},Image:class extends Node{constructor(){super('img')}},console,setTimeout,clearTimeout,setInterval:()=>0,clearInterval:()=>{},Math};
 vm.runInNewContext(fs.readFileSync(__dirname+'/../games-extra.js','utf8'),sandbox);
 const games={},list=[];
 window.registerExtraGames(games,list);
-assert.equal(list.length,8);
+assert.equal(list.length,10);
 function ctx(game,n,first,me,local=false){
   const out={sent:[],ended:undefined,log:[],...{id:game,first,n,local,me,pov:me??0,role:me,root:new Node('div'),cleanup:[],onMsg:null},
   canAct(turn){return local||this.me===turn},
+  who(p){return local?'Игрок '+(p+1):(p===this.me?'Вы':'Соперник')},
   send(m){this.sent.push(m)},
+  setStatus(text,player,extra){this.log.push(['status',text,player,extra]);},
   turn(turn,extra){this.log.push(['turn',turn,extra]);},
   end(win,extra){this.ended=[win,extra];this.log.push(['end',win,extra]);}}
   games[game].init(out);return out;
@@ -48,7 +50,9 @@ play('quoridor',a=>{
 });
 play('mines',a=>find(a.root,'x-mine-cell')[0].click());
 play('memory',a=>find(a.root,'x-memory-cell')[0].click());
-play('arena',a=>find(a.root,'x-arena-cell')[38].click());
+play('arena',a=>find(a.root,'arena2-action').find(x=>x.dataset.act==='fence').click());
+play('vanish',a=>find(a.root,'x-tools')[0].children[0].click());
+play('blockade',a=>find(a.root,'x-block-cell')[37].click());
 console.log('All game smoke tests passed');
 function localChess(steps){
   const c=ctx('chess',78,0,null,true);
