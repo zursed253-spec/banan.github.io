@@ -1200,7 +1200,7 @@ Games.bs={init(ctx){
       if(!['miss','hit','sunk'].includes(d.r)||!Number.isInteger(d.i)||d.i<0||d.i>=100)return;
       if(d.r==='sunk'&&(!Array.isArray(d.cells)||!d.cells.length||!d.cells.every(c=>Number.isInteger(c)&&c>=0&&c<100)))return;
       if(!ctx.canRemoteAct(1-turn,d._from))return;
-      if(teamMode&&d._from!==1-ctx.team)return;
+      if(teamMode&&d._from!==1-turn)return;
       if(teamMode&&d._from%2===ctx.team)applyTeamIncomingResult(d);
       else onRes(d);
     }
