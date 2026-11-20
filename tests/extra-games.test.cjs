@@ -326,9 +326,9 @@ test('turn-based team games relay valid moves to both a teammate and the opposin
     chess:c=>{find(c.root,'x-chess-cell')[52].click();find(c.root,'x-chess-cell')[36].click();},
     checkers:c=>{find(c.root,'x-check-cell')[40].click();find(c.root,'x-check-cell')[33].click();},
     gomoku:c=>find(c.root,'x-go-cell')[0].click(),
-    hex:c=>find(c.root,'x-hex-cell')[0].click(),
+    hex:c=>find(c.root,'x-hex-tile')[0].click(),
     quoridor:c=>{
-      const svg=find(c.root,'x-q-board')[0];
+      const svg=find(c.root,'x-q-board')[0].children[0];
       const cell=svg.children.find(x=>x.tagName==='rect'&&x.attrs.x==='274'&&x.attrs.y==='475');
       assert.ok(cell);cell.click();
     },
