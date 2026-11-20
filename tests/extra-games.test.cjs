@@ -40,9 +40,10 @@ const poolStart=source.indexOf('const MEME_POOL = ')+'const MEME_POOL = '.length
 const poolEnd=source.indexOf('];',poolStart)+1;
 const memePool=JSON.parse(source.slice(poolStart,poolEnd));
 assert.equal(memePool.length,36,'the game pool contains all 36 meme images');
-function ctx(game,n,first,me,local=false){
-  const out={sent:[],ended:undefined,log:[],...{id:game,first,n,local,me,pov:me??0,role:me,root:new Node('div'),cleanup:[],onMsg:null},
-  canAct(turn){return local||this.me===turn},
+function ctx(game,n,first,me,local=false,players=2,teamGame=true){
+  const out={sent:[],ended:undefined,log:[],...{id:game,first,n,local,me,players,teamGame,pov:me??0,role:me,root:new Node('div'),cleanup:[],onMsg:null},
+  canAct(turn){return local||(this.teamGame&&this.players>=3?this.me%2===turn:this.me===turn)},
+  canRemoteAct(turn,from){return Number.isInteger(from)&&from>=0&&from<this.players&&(this.teamGame&&this.players>=3?from%2===turn:from===turn)},
   who(p){return local?'Игрок '+(p+1):(p===this.me?'Вы':'Соперник')},
   send(m){this.sent.push(m)},
   setStatus(text,player,extra){this.log.push(['status',text,player,extra]);},
@@ -55,7 +56,7 @@ function play(game,actions){
  const a=ctx(game,42,0,0), b=ctx(game,42,0,1);
  actions(a);
  assert.ok(a.sent.length>0, game+' has sent action');
- const seq=a.sent.slice();for(const msg of seq)b.onMsg(msg);
+ const seq=a.sent.slice();for(const msg of seq)b.onMsg({...msg,_from:0});
  assert.equal(b.sent.length,0,game+' remote sent no echo');
  assert.deepEqual(a.log[a.log.length-1][0],b.log[b.log.length-1][0],game+' status kind');
  console.log('PASS',game,'sent',JSON.stringify(seq));
@@ -65,7 +66,7 @@ function testVanishOnline(){
  const picker=ctx('vanish',42,0,0),guesser=ctx('vanish',42,0,1);
  const start=picker.sent.find(m=>m.k==='vanish-start');
  assert.ok(start,'picker starts the round and broadcasts it');
- guesser.onMsg(start);
+ guesser.onMsg({...start,_from:0});
  tickIntervals(7);
  const pickerItems=find(picker.root,'x-vanish-item');
  const guesserItems=find(guesser.root,'x-vanish-item');
@@ -91,7 +92,7 @@ function testVanishOnline(){
  selected.click();
  const hide=picker.sent.find(m=>m.k==='vanish-hide');
  assert.equal(hide.id,selected.dataset.itemId,'the chosen table item is the one removed');
- guesser.onMsg(hide);
+ guesser.onMsg({...hide,_from:0});
  const pickerChoices=find(picker.root,'x-vanish-choice');
  const guesserChoices=find(guesser.root,'x-vanish-choice');
  assert.equal(guesserChoices.length,10,'all ten original items are offered as answers');
@@ -102,13 +103,13 @@ function testVanishOnline(){
  answer.click();
  const guess=guesser.sent.find(m=>m.k==='vanish-guess');
  assert.equal(guess.id,selected.dataset.itemId,'the guess is sent to the picker');
- picker.onMsg(guess);
+ picker.onMsg({...guess,_from:1});
  assert.match(find(picker.root,'x-hud')[0].textContent,/Игрок 2: 1/,'the point is awarded to the guesser');
 
  runTimeouts(1600);
  const next=guesser.sent.filter(m=>m.k==='vanish-start').at(-1);
  assert.ok(next&&next.turn===1&&next.round===1,'roles swap on the next round');
- picker.onMsg(next);
+ picker.onMsg({...next,_from:1});
  assert.match(find(picker.root,'x-hud')[0].textContent,/Раунд 2 \/ 8/,'the next round starts on both clients');
  picker.cleanup.forEach(fn=>fn());
  guesser.cleanup.forEach(fn=>fn());
@@ -253,9 +254,35 @@ for(const game of list){
   assert.equal(game.teamGame,true,game.id+' declares its two-team format');
 }
 
-const teammateGame=ctx('gomoku',120,0,0,false);
+const teammateGame=ctx('gomoku',120,0,0,false,4,true);
 teammateGame.onMsg({i:112,_from:2});
 const teammateStones=find(teammateGame.root,'x-go-stone');
 assert.equal(teammateStones.length,1,'a move from the other seat on the same team updates the shared board');
 assert.ok(teammateStones[0].className.includes('p0'),'teammate move is applied to the correct team colour');
 teammateGame.cleanup.forEach(fn=>fn());
+
+
+test('every visible extra game constructs for three and four participants',()=>{
+  for(const game of list.filter(item=>item.id!=='arena')){
+    for(const players of [3,4]){
+      const instance=ctx(game.id,130+players,0,0,false,players,true);
+      assert.ok(instance.root.children.length>0,game.id+' renders for '+players+' participants');
+      assert.equal(game.minPlayers,1);
+      assert.equal(game.maxPlayers,4);
+      instance.cleanup.forEach(fn=>fn());
+    }
+  }
+});
+
+test('team games accept a teammate move but reject a stale or opposing sender',()=>{
+  const match=ctx('gomoku',141,0,0,false,4,true);
+  match.onMsg({i:112,_from:1});
+  assert.equal(find(match.root,'x-go-stone').length,0,'opposing team cannot play for the active team');
+  match.onMsg({i:112,_from:2});
+  assert.equal(find(match.root,'x-go-stone').length,1,'the other seat on the active team can make the move');
+  match.onMsg({i:113,_from:2});
+  assert.equal(find(match.root,'x-go-stone').length,1,'the previous team cannot move after the turn changes');
+  match.onMsg({i:113,_from:1});
+  assert.equal(find(match.root,'x-go-stone').length,2,'the new active team can move');
+  match.cleanup.forEach(fn=>fn());
+});
