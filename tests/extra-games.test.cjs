@@ -104,7 +104,7 @@ function testVanishOnline(){
  const guess=guesser.sent.find(m=>m.k==='vanish-guess');
  assert.equal(guess.id,selected.dataset.itemId,'the guess is sent to the picker');
  picker.onMsg({...guess,_from:1});
- assert.match(find(picker.root,'x-hud')[0].textContent,/Игрок 2: 1/,'the point is awarded to the guesser');
+ assert.match(find(picker.root,'x-hud')[0].textContent,/Соперник: 1/,'the point is awarded to the guesser');
 
  runTimeouts(1600);
  const next=guesser.sent.filter(m=>m.k==='vanish-start').at(-1);
