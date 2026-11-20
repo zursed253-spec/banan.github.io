@@ -212,7 +212,7 @@ function toast(t){const d=el('div','toast',t);document.body.appendChild(d);setTi
 const LIST=[
  {id:'ttt',name:'Крестики-нолики',desc:'2 игрока — 3×3; 3–4 игрока — поле 6×6 с разными символами.',online:true,local:true,teamGame:false,
   icon:'<path d="M18 8v32M30 8v32M8 18h32M8 30h32"/><path d="M11 11l5 5M16 11l-5 5"/><circle cx="24" cy="24" r="3"/>'},
- {id:'bs',name:'Морской бой',desc:'Поле 10×10, флот из пяти кораблей. Попал — стреляешь снова.',online:true,local:false,
+ {id:'bs',name:'Морской бой',desc:'Поле 10×10, флот из пяти кораблей. Соло против компьютера или командами до четырёх игроков.',online:true,local:true,
   icon:'<rect x="8" y="8" width="32" height="32"/><path d="M8 16h32M8 24h32M8 32h32M16 8v32M24 8v32M32 8v32"/><rect x="16" y="24" width="16" height="8" fill="currentColor"/>'},
  {id:'c4',name:'Четыре в ряд',desc:'Роняйте фишки в колонки и соберите четыре подряд.',online:true,local:true,
   icon:'<rect x="6" y="8" width="36" height="32" rx="2"/><circle cx="14" cy="18" r="3"/><circle cx="24" cy="18" r="3"/><circle cx="34" cy="18" r="3"/><circle cx="14" cy="30" r="3" fill="currentColor"/><circle cx="24" cy="30" r="3" fill="currentColor"/><circle cx="34" cy="30" r="3"/>'},
@@ -435,7 +435,7 @@ function makeCtx(id,first,n,players){
       return teamGame&&count>=3 ? (this.me%2===t) : t===this.me;
     },
     who(p){
-      if(count===1&&teamGame&&p===1)return 'Компьютер';
+      if(count===1&&(teamGame||id==='ttt'))return p===0?'Вы':'Компьютер';
       if(botSeatGame)return p===0?'Вы':'Бот '+p;
       if(teamGame&&count>=3)return 'Команда '+(p+1);
       return local?'Игрок '+(p+1):(p===this.me?'Вы':'Игрок '+(p+1));
