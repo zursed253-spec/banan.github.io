@@ -141,7 +141,7 @@ test('local Battleship can place two fleets and finish a pass-and-play match for
     const cells=foeGrid.children.filter(node=>node.className.split(/\s+/).includes('bs-cell'));
     assert.equal(cells.length,100);
     for(let step=0;step<220&&!ctx.ended;step++){
-      const nextShot=cells.find(cell=>cell.className.split(/\\s+/).includes('unk'));
+      const nextShot=cells.find(cell=>cell.className.split(/\s+/).includes('unk'));
       if(!nextShot)break;
       nextShot.click();
     }
