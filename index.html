@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Banan — игровой зал</title>
 <meta name="theme-color" content="#f4f6f7">
+<script>
+try { document.documentElement.dataset.theme=localStorage.getItem('banan-theme')==='dark'?'dark':'light'; }
+catch (_) { document.documentElement.dataset.theme='light'; }
+</script>
 <style>
 :root{--bg:#f3f3f1;--panel:#fff;--ink:#1d2127;--muted:#6a727b;--line:#d3d6da;--p0:#2b4a6f;--p1:#8c3b33;--dark:#2b3440}
 *{box-sizing:border-box}
@@ -124,8 +128,26 @@ input[type=text],#iCode{border:1px solid #b9bdc2;border-radius:4px;padding:8px 1
 
 <header class="top"><div class="top-in">
   <div class="brand">Banan<small>Игровая комната · играйте вместе</small></div>
-  <div class="net"><span class="dot" id="netDot"></span><span id="netTxt">Не подключено</span></div>
+  <div class="top-end">
+    <div class="net"><span class="dot" id="netDot"></span><span id="netTxt">Не подключено</span></div>
+    <button class="btn decor-trigger" type="button" id="decorToggle" aria-expanded="false" aria-controls="decorPanel">Оформление <span aria-hidden="true">⚙</span></button>
+  </div>
 </div></header>
+
+<aside id="decorPanel" class="decor-panel" aria-label="Оформление и украшения" hidden>
+  <div class="decor-heading"><strong>Оформление</strong><button id="decorClose" class="decor-close" type="button" aria-label="Закрыть настройки">×</button></div>
+  <p class="decor-subtitle">Цвет сайта</p>
+  <div class="theme-choices" role="group" aria-label="Тема оформления">
+    <button class="theme-choice" type="button" data-site-theme="light" aria-pressed="true">☀ Светлая</button>
+    <button class="theme-choice" type="button" data-site-theme="dark" aria-pressed="false">☾ Тёмная</button>
+  </div>
+  <div class="decor-divider"></div>
+  <div class="decor-heading decor-inner-title"><strong>Какашки</strong><span id="poopCounter" class="decor-count">0 / 3</span></div>
+  <p class="decor-subtitle">Выбери одну из трёх, перетаскивай по экрану. Нажми ×, чтобы убрать.</p>
+  <div class="poop-choices" id="poopChoices" role="group" aria-label="Добавить какашку"></div>
+  <button class="decor-clear" id="poopClear" type="button">Убрать все</button>
+</aside>
+<div class="poop-layer" id="poopLayer" aria-label="Украшения экрана"></div>
 
 <div class="wrap">
   <section id="hubView">
@@ -148,6 +170,7 @@ input[type=text],#iCode{border:1px solid #b9bdc2;border-radius:4px;padding:8px 1
   </section>
 </div>
 
+<script src="site-personalize.js?v=1"></script>
 <script src="games-extra.js?v=7"></script>
 <script src="games-cards.js?v=1"></script>
 <script>
