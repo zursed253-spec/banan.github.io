@@ -32,6 +32,10 @@ test('solo mode locks human input during computer turns and has a bot for each t
   for(const id of ['chess','checkers','gomoku','hex','quoridor','mines','memory','vanish','blockade'])assert.ok(html.includes("case '"+id+"'"),id+' has a registered bot path');
 });
 
+test('battleship is available in local solo mode',()=>{
+  assert.match(html,/name:'Морской бой',[\s\S]{0,220}local:true/);
+});
+
 test('four-player battleship resolves team shots once and syncs teammate results',()=>{
   assert.match(html,/ctx\.me!==ctx\.team/);
   assert.match(html,/applyTeamIncomingResult/);
