@@ -555,7 +555,7 @@
       for(let p=0;p<N;p++){
         const seat=node('div','cg-poker-seat'+(state.stage!=='between'&&p===state.toAct?' active':'')+(state.folded[p]?' folded':''));
         seat.append(node('b','',playerName(ctx,bots,p)+(p===state.dealer?' · D':'')),node('span','',state.chips[p]+' фишек'),node('small','',state.folded[p]?'Пас':state.bets[p]?'Ставка '+state.bets[p]:''));
-        if(p===ctx.me||(ctx.players===1&&p===0)||ctx.local&&ctx.players>1&&state.stage!=='between'){
+        if(p===ctx.me||(ctx.players===1&&p===0)||ctx.local&&ctx.players>1&&p===state.toAct){
           const own=node('div','cg-hole');
           state.hands[p].forEach(c=>own.appendChild(playingCard(c,null,true,false)));
           seat.appendChild(own);
