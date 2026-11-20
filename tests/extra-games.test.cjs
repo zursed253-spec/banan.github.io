@@ -287,3 +287,24 @@ test('team games accept a teammate move but reject a stale or opposing sender',(
   assert.equal(find(match.root,'x-go-stone').length,2,'the new active team can move');
   match.cleanup.forEach(fn=>fn());
 });
+
+
+test('three- and four-player vanish teams start each round exactly once',()=>{
+  for(const players of [3,4]){
+    const leader=ctx('vanish',160+players,0,0,false,players,true);
+    const teammate=ctx('vanish',160+players,0,2,false,players,true);
+    const opponent=ctx('vanish',160+players,0,1,false,players,true);
+    const start=leader.sent.find(message=>message.k==='vanish-start');
+    assert.ok(start,'the first seat of the active team starts the round');
+    assert.equal(leader.sent.filter(message=>message.k==='vanish-start').length,1);
+    assert.equal(teammate.sent.filter(message=>message.k==='vanish-start').length,0,
+      'the second seat does not emit a duplicate round-start message');
+    teammate.onMsg({...start,_from:0});
+    opponent.onMsg({...start,_from:0});
+    assert.equal(find(teammate.root,'x-vanish-item').length,10);
+    assert.equal(find(opponent.root,'x-vanish-item').length,10);
+    leader.cleanup.forEach(fn=>fn());
+    teammate.cleanup.forEach(fn=>fn());
+    opponent.cleanup.forEach(fn=>fn());
+  }
+});
