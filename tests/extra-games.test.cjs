@@ -194,8 +194,9 @@ function testChessFeatures(){
   const castle=ctx('chess',93,0,null,true);
   const castleCells=()=>find(castle.root,'x-chess-cell');
   const castleMove=(from,to)=>{castleCells()[from].click();castleCells()[to].click();};
-  castleMove(62,45);castleMove(12,28); // Nf3, ...e5
-  castleMove(61,34);castleMove(1,18);  // Bc4, ...Nc6
+  castleMove(52,36);castleMove(12,28); // e4, ...e5
+  castleMove(62,45);castleMove(1,18);  // Nf3, ...Nc6
+  castleMove(61,34);castleMove(6,21);  // Bc4, ...Nf6
   castleMove(60,62);                   // O-O
   assert.equal(castleCells()[62].children.find(x=>x.className.includes('x-chess-piece'))?.textContent,'♔','castling moves the king two squares');
   assert.equal(castleCells()[61].children.find(x=>x.className.includes('x-chess-piece'))?.textContent,'♖','castling also moves the rook');
