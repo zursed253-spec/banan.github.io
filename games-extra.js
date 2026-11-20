@@ -65,19 +65,42 @@
     // ─────────────────────────────────────────────────────────────────────
     const chessIcon = '<rect x="7" y="7" width="34" height="34" rx="3"/><path d="M7 24h34M24 7v34M12 36l24-24"/><circle cx="24" cy="24" r="6" fill="currentColor" stroke="none"/>';
     function chessInit(ctx) {
-      const { area } = U.board(ctx, 'Полные правила: шах, мат, пат, рокировка и взятие на проходе. Нажмите фигуру, затем клетку.', 'x-narrow');
-      const bar = U.make('div', 'x-hud');
+      const { area } = U.board(ctx, 'Шахматы по полным правилам. Выберите фигуру и затем клетку назначения. На телефоне можно играть касаниями.', 'x-narrow');
+      const shell = U.make('div', 'x-chess-shell');
+      const main = U.make('div', 'x-chess-main');
+      const info = U.make('aside', 'x-chess-info');
+      const bar = U.make('div', 'x-hud x-chess-players');
       const boardEl = U.make('div', 'x-chess');
       const promoPanel = U.make('div', 'x-promotion');
-      area.append(bar, boardEl, promoPanel);
+      const tools = U.make('div', 'x-tools x-chess-controls');
+      const undoBtn = U.button('btn x-chess-undo', 'Отменить последний ход', undo);
+      const flipBtn = U.button('btn x-chess-flip', 'Перевернуть доску', () => { flipped = !flipped; draw(); });
+      const claimBtn = U.button('btn x-chess-claim', 'Заявить ничью', claimDraw);
+      const historyTitle = U.make('div', 'x-chess-history-title', 'История партии');
+      const historyList = U.make('div', 'x-chess-history');
+      const historyEmpty = U.make('div', 'x-chess-history-empty', 'Ходы появятся здесь');
+      area.append(shell);
+      shell.append(main, info);
+      main.append(bar, boardEl, promoPanel, tools);
+      info.append(historyTitle, historyList, historyEmpty);
+      tools.append(undoBtn, flipBtn, claimBtn);
+      boardEl.setAttribute('role', 'grid');
+      boardEl.setAttribute('aria-label', 'Шахматная доска, 8 на 8');
+
       const glyph = {K:'♔',Q:'♕',R:'♖',B:'♗',N:'♘',P:'♙',k:'♚',q:'♛',r:'♜',b:'♝',n:'♞',p:'♟'};
       let b = 'rnbqkbnrpppppppp................................PPPPPPPPRNBQKBNR'.split('').map(p => p === '.' ? null : p);
       let rights = {K:true,Q:true,k:true,q:true};
       let ep = -1, turn = 0, last = [], selected = -1, ended = false, pending = null;
+      let halfmove = 0, fullmove = 1, flipped = ctx.me === 1;
+      let moveHistory = [], snapshots = [];
+      let positionCounts = Object.create(null);
+
       const sOf = p => p && p === p.toUpperCase() ? 0 : 1;
       const inside = (r,c) => r >= 0 && r < 8 && c >= 0 && c < 8;
       const side = p => p ? sOf(p) : -1;
       const kingSquare = (board, s) => board.indexOf(s === 0 ? 'K' : 'k');
+      const squareName = i => 'abcdefgh'[i & 7] + (8 - (i >> 3));
+
       function attacked(board, pos, by) {
         const r = pos >> 3, c = pos & 7;
         const pawnRow = r + (by === 0 ? 1 : -1);
@@ -110,7 +133,9 @@
         const p=board[from]; if (!p) return [];
         const owner=side(p), type=p.toLowerCase(), r=from>>3,c=from&7;
         const out=[];
-        function add(y,x,extra={}) { if (inside(y,x) && side(board[y*8+x])!==owner && board[y*8+x]?.toLowerCase()!=='k') out.push({from,to:y*8+x,...extra}); }
+        function add(y,x,extra={}) {
+          if (inside(y,x) && side(board[y*8+x])!==owner && board[y*8+x]?.toLowerCase()!=='k') out.push({from,to:y*8+x,...extra});
+        }
         if (type==='p') {
           const d=owner===0?-1:1, one=r+d;
           if (inside(one,c) && !board[one*8+c]) {
@@ -172,83 +197,235 @@
         for(let i=0;i<64;i++) if(side(board[i])===player) moves.push(...legalAt(board,i,player,enPassant,castle));
         return moves;
       }
-      function move(m,promotion) {
-        const captured=b[m.to],moving=b[m.from];
-        b=simulate(b,m,promotion);
-        for (const [pos,k] of [[60,'K'],[4,'k'],[63,'K'],[56,'Q'],[7,'k'],[0,'q']]) {
-          if (m.from===pos || m.to===pos) {
-            if (k==='K'&&pos===60) {rights.K=false;rights.Q=false;}
-            else if(k==='k'&&pos===4) {rights.k=false;rights.q=false;}
-            else rights[k]=false;
+      function snapshot() {
+        return {
+          b:b.slice(), rights:{...rights}, ep, turn, last:last.slice(), halfmove, fullmove,
+          moveHistory:moveHistory.slice(), positionCounts:{...positionCounts}
+        };
+      }
+      function restore(state) {
+        b=state.b.slice(); rights={...state.rights}; ep=state.ep; turn=state.turn;
+        last=state.last.slice(); halfmove=state.halfmove; fullmove=state.fullmove;
+        moveHistory=state.moveHistory.slice(); positionCounts=Object.assign(Object.create(null),state.positionCounts);
+        selected=-1; pending=null; ended=false; promoPanel.textContent='';
+      }
+      function positionKey(board,player,enPassant,castle) {
+        const legalEp = enPassant>=0 && allMoves(board,player,enPassant,castle).some(m=>m.ep) ? enPassant : -1;
+        return board.map(p=>p||'.').join('')+'|'+player+'|'+
+          (castle.K?'K':'')+(castle.Q?'Q':'')+(castle.k?'k':'')+(castle.q?'q':'')+'|'+legalEp;
+      }
+      function repetitionCount() {
+        return positionCounts[positionKey(b,turn,ep,rights)]||0;
+      }
+      function insufficientMaterial(board) {
+        const pieces=[];
+        for(let i=0;i<64;i++) if(board[i]&&board[i].toLowerCase()!=='k') pieces.push({type:board[i].toLowerCase(),square:i});
+        if(pieces.length===0) return true;
+        if(pieces.length===1 && (pieces[0].type==='b'||pieces[0].type==='n')) return true;
+        if(pieces.every(p=>p.type==='b')) {
+          const colors=new Set(pieces.map(p=>((p.square>>3)+(p.square&7))%2));
+          return colors.size===1;
+        }
+        return false;
+      }
+      function canClaimThreefold() { return repetitionCount()>=3; }
+      function canClaimFifty() { return halfmove>=100; }
+      function currentCheck() { return inCheck(b,turn); }
+      function setDraw(reason) {
+        ended=true; selected=-1; pending=null; promoPanel.textContent='';
+        ctx.end(null,reason); draw();
+      }
+      function claimDraw() {
+        if(ended) return;
+        const type=canClaimThreefold()?'threefold':canClaimFifty()?'fifty':null;
+        if(!type) return;
+        ctx.send({claim:type});
+        acceptClaim(type);
+      }
+      function acceptClaim(type) {
+        if(ended) return;
+        if(type==='threefold'&&canClaimThreefold()) setDraw('Ничья — троекратное повторение позиции');
+        else if(type==='fifty'&&canClaimFifty()) setDraw('Ничья — правило 50 ходов');
+      }
+      function moveText(m,promotion) {
+        const piece=b[m.from], type=piece.toLowerCase();
+        const capture=!!b[m.to]||!!m.ep;
+        if(m.castle) return m.castle==='k'?'O-O':'O-O-O';
+        let text='';
+        if(type==='p') {
+          if(capture) text+='abcdefgh'[m.from&7];
+        } else {
+          text+=type.toUpperCase();
+          const alternatives=allMoves(b,turn,ep,rights).filter(other=>
+            other.from!==m.from&&other.to===m.to&&b[other.from]?.toLowerCase()===type);
+          if(alternatives.length) {
+            const sameFile=alternatives.some(other=>(other.from&7)===(m.from&7));
+            const sameRank=alternatives.some(other=>(other.from>>3)===(m.from>>3));
+            if(!sameFile) text+='abcdefgh'[m.from&7];
+            else if(!sameRank) text+=String(8-(m.from>>3));
+            else text+=squareName(m.from);
           }
         }
-        if (moving==='K'){rights.K=false;rights.Q=false;}
-        if (moving==='k'){rights.k=false;rights.q=false;}
-        if (captured==='R'&&m.to===63)rights.K=false;
-        if (captured==='R'&&m.to===56)rights.Q=false;
-        if (captured==='r'&&m.to===7)rights.k=false;
-        if (captured==='r'&&m.to===0)rights.q=false;
-        ep = m.double ? (m.from+m.to)/2 : -1;
-        last=[m.from,m.to]; selected=-1; pending=null;
+        if(capture) text+='x';
+        text+=squareName(m.to);
+        if(type==='p'&&(m.to>>3)===(turn===0?0:7)) text+='='+promotion.toUpperCase();
+        return text;
+      }
+      function updateRights(m,moving,captured) {
+        if(moving==='K') {rights.K=false;rights.Q=false;}
+        if(moving==='k') {rights.k=false;rights.q=false;}
+        if(moving==='R'&&m.from===63) rights.K=false;
+        if(moving==='R'&&m.from===56) rights.Q=false;
+        if(moving==='r'&&m.from===7) rights.k=false;
+        if(moving==='r'&&m.from===0) rights.q=false;
+        if(captured==='R'&&m.to===63) rights.K=false;
+        if(captured==='R'&&m.to===56) rights.Q=false;
+        if(captured==='r'&&m.to===7) rights.k=false;
+        if(captured==='r'&&m.to===0) rights.q=false;
+      }
+      function move(m,promotion,remote) {
+        const before=snapshot(), moving=b[m.from];
+        const captured=m.ep?b[(m.from>>3)*8+(m.to&7)]:b[m.to];
+        const notation=moveText(m,promotion);
+        updateRights(m,moving,captured);
+        b=simulate(b,m,promotion);
+        ep=m.double?(m.from+m.to)/2:-1;
+        halfmove=(moving.toLowerCase()==='p'||captured)?0:halfmove+1;
+        const moveNumber=fullmove, mover=turn;
+        if(turn===1) fullmove++;
+        last=[m.from,m.to]; selected=-1; pending=null; promoPanel.textContent='';
         turn=1-turn;
-        const moves=allMoves(b,turn,ep,rights);
+        const moves=allMoves(b,turn,ep,rights), check=inCheck(b,turn);
+        const san=notation+(check?(moves.length?'+':'#'):'');
+        moveHistory.push({number:moveNumber,player:mover,san});
+        snapshots.push(before);
+        const key=positionKey(b,turn,ep,rights);
+        positionCounts[key]=(positionCounts[key]||0)+1;
         draw();
-        if (!moves.length) {
+        if(!moves.length) {
           ended=true;
-          ctx.end(inCheck(b,turn)?1-turn:null,inCheck(b,turn)?'Шах и мат':'Пат — ничья');
-        } else ctx.turn(turn,inCheck(b,turn)?'ШАХ':'Фигуры светлые — игрок 1, тёмные — игрок 2');
+          ctx.end(check?mover:null,check?'Шах и мат':'Пат — ничья');
+          updateControls();
+        } else if(insufficientMaterial(b)) {
+          setDraw('Ничья — недостаточно материала для мата');
+        } else if(halfmove>=150) {
+          setDraw('Ничья — правило 75 ходов');
+        } else if(repetitionCount()>=5) {
+          setDraw('Ничья — пятикратное повторение позиции');
+        } else {
+          ctx.turn(turn,check?'ШАХ':'');
+          updateControls();
+        }
+        renderHistory();
       }
       function tryMove(from,to,promotion,remote) {
-        if (ended || !U.allow(ctx,turn,remote)||!U.within(from,64)||!U.within(to,64)) return false;
-        const piece=b[from]; if(!piece||side(piece)!==turn)return false;
+        if(ended||pending||!U.allow(ctx,turn,remote)||!U.within(from,64)||!U.within(to,64)) return false;
+        const piece=b[from]; if(!piece||side(piece)!==turn) return false;
         const m=legalAt(b,from,turn,ep,rights).find(m=>m.to===to);
-        if(!m)return false;
-        if (piece.toLowerCase()==='p'&&(to>>3)===(turn===0?0:7) && !['q','r','b','n'].includes(promotion)) return false;
-        move(m,promotion||'q');
-        if(!remote)ctx.send({from,to,promotion:promotion||'q'});
+        if(!m) return false;
+        if(piece.toLowerCase()==='p'&&(to>>3)===(turn===0?0:7)&&!['q','r','b','n'].includes(promotion)) return false;
+        move(m,promotion||'q',remote);
+        if(!remote) ctx.send({from,to,promotion:promotion||'q'});
         return true;
       }
       function promote(from,to) {
-        pending={from,to};promoPanel.textContent='';
-        promoPanel.append(U.make('span','','Превратить пешку в:'));
-        for(const piece of ['q','r','b','n']){
+        pending={from,to}; promoPanel.textContent='';
+        promoPanel.append(U.make('span','x-promotion-label','Превратить пешку в'));
+        for(const piece of ['q','r','b','n']) {
           const sym=turn===0?piece.toUpperCase():piece;
-          const button=U.button('x-promo-btn',piece,()=>{promoPanel.textContent='';tryMove(from,to,piece,false);});
-          button.textContent=glyph[sym];promoPanel.append(button);
+          const button=U.button('x-promo-btn','Превратить в '+({q:'ферзя',r:'ладью',b:'слона',n:'коня'}[piece]),()=>{
+            promoPanel.textContent=''; tryMove(from,to,piece,false);
+          });
+          button.textContent=glyph[sym]; promoPanel.append(button);
         }
+        updateControls();
       }
       function click(i) {
-        if (ended || !ctx.canAct(turn)) return;
-        if(selected>=0){
-          const legal=legalAt(b,selected,turn,ep,rights).find(m=>m.to===i);
-          if(legal){
+        if(ended||pending||!ctx.canAct(turn)) return;
+        if(selected>=0) {
+          const candidate=legalAt(b,selected,turn,ep,rights).find(m=>m.to===i);
+          if(candidate) {
             if(b[selected].toLowerCase()==='p'&&(i>>3)===(turn===0?0:7)) promote(selected,i);
             else tryMove(selected,i,'q',false);
             return;
           }
         }
         selected=side(b[i])===turn?i:-1;
-        promoPanel.textContent='';pending=null;draw();
+        promoPanel.textContent=''; pending=null; draw();
+      }
+      function renderHistory() {
+        historyList.textContent='';
+        historyEmpty.hidden=moveHistory.length>0;
+        for(let i=0;i<moveHistory.length;i+=2) {
+          const white=moveHistory[i], black=moveHistory[i+1];
+          const row=U.make('div','x-chess-move-row'+(i+2>=moveHistory.length?' current':''));
+          row.append(
+            U.make('span','x-chess-move-number',String(white.number)+'.'),
+            U.make('span','x-chess-move-white',white.san),
+            U.make('span','x-chess-move-black',black?black.san:'—')
+          );
+          historyList.append(row);
+        }
+        historyList.scrollTop=historyList.scrollHeight;
+      }
+      function updateControls() {
+        undoBtn.disabled=!ctx.local||snapshots.length===0||ended||!!pending;
+        claimBtn.hidden=!(canClaimThreefold()||canClaimFifty())||ended;
+        claimBtn.textContent=canClaimThreefold()?'Заявить ничью · повтор': 'Заявить ничью · 50 ходов';
+        flipBtn.textContent=flipped?'Вернуть доску':'Перевернуть доску';
+        flipBtn.disabled=!!pending;
       }
       function draw() {
         boardEl.textContent='';
         const legal=selected>=0?legalAt(b,selected,turn,ep,rights).map(m=>m.to):[];
-        for (let visual=0;visual<64;visual++) {
-          const i=ctx.me===1 ? 63-visual:visual, r=i>>3,c=i&7, piece=b[i];
+        const checkedKing=currentCheck()?kingSquare(b,turn):-1;
+        for(let visual=0;visual<64;visual++) {
+          const i=flipped?63-visual:visual, r=i>>3,c=i&7, piece=b[i];
           const cell=U.button('x-chess-cell'+((r+c)%2===0?' light':' dark')+
-              (selected===i?' selected':'')+(legal.includes(i)?' legal':'')+(last.includes(i)?' last':'')+
-              (piece?' has-piece':''), 'Клетка '+String.fromCharCode(97+c)+(8-r),()=>click(i));
-          if(piece){
-            const span=U.make('span','x-chess-piece '+(side(piece)===0?'white':'black'),glyph[piece]);
-            cell.append(span);
-          }
+            (selected===i?' selected':'')+(legal.includes(i)?' legal':'')+
+            (last.includes(i)?' last':'')+(checkedKing===i?' in-check':'')+(piece?' has-piece':''),
+            'Клетка '+squareName(i),()=>click(i));
+          cell.setAttribute('role','gridcell');
+          cell.setAttribute('aria-pressed',selected===i?'true':'false');
+          const showRank=flipped?c===7:c===0, showFile=flipped?r===0:r===7;
+          if(showRank) cell.append(U.make('span','x-chess-coordinate x-chess-rank',String(8-r)));
+          if(showFile) cell.append(U.make('span','x-chess-coordinate x-chess-file','abcdefgh'[c]));
+          if(piece) cell.append(U.make('span','x-chess-piece '+(side(piece)===0?'white':'black'),glyph[piece]));
           boardEl.append(cell);
         }
         bar.textContent='';
-        bar.append(U.make('span','x-token','♔ Игрок 1 — белые'),U.make('span','x-token','♚ Игрок 2 — чёрные'));
+        bar.append(
+          U.make('span','x-token'+(turn===1?' active':'') ,'♚ '+(ctx.local?'Игрок 2':'Чёрные')),
+          U.make('span','x-token'+(turn===0?' active':''),'♔ '+(ctx.local?'Игрок 1':'Белые'))
+        );
+        updateControls();
       }
-      ctx.onMsg=d=>{if(d&&Number.isInteger(d.from)&&Number.isInteger(d.to))tryMove(d.from,d.to,d.promotion,true);};
-      draw();ctx.turn(turn,'Белые начинают');
+      function undo() {
+        if(!ctx.local||!snapshots.length||ended||pending) return;
+        restore(snapshots.pop());
+        draw(); renderHistory();
+        ctx.turn(turn,currentCheck()?'ШАХ':'');
+      }
+      function claimDraw() {
+        if(ended) return;
+        const type=canClaimThreefold()?'threefold':canClaimFifty()?'fifty':null;
+        if(!type) return;
+        ctx.send({claim:type});
+        acceptClaim(type);
+      }
+      function acceptClaim(type) {
+        if(ended) return;
+        if(type==='threefold'&&canClaimThreefold()) setDraw('Ничья — троекратное повторение позиции');
+        else if(type==='fifty'&&canClaimFifty()) setDraw('Ничья — правило 50 ходов');
+      }
+      ctx.onMsg=d=>{
+        if(!d||typeof d!=='object') return;
+        if(d.claim==='threefold'||d.claim==='fifty') { acceptClaim(d.claim); return; }
+        if(Number.isInteger(d.from)&&Number.isInteger(d.to)) tryMove(d.from,d.to,d.promotion||'q',true);
+      };
+      const initialKey=positionKey(b,turn,ep,rights);
+      positionCounts[initialKey]=1;
+      draw(); renderHistory(); ctx.turn(turn,'Белые начинают');
     }
     U.register('chess','Шахматы','Полноценная партия: шах, мат, рокировка и превращения.',true,chessIcon,chessInit);
 
