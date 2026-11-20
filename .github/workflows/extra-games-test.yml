@@ -5,6 +5,9 @@ on:
       - "games-extra.js"
       - "games-cards.js"
       - "games-extra.css"
+      - "site.css"
+      - "site-personalize.js"
+      - "tests/site-personalize.test.cjs"
       - "tests/extra-games.test.cjs"
       - "tests/game-cards.test.cjs"
       - ".github/workflows/extra-games-test.yml"
@@ -13,6 +16,9 @@ on:
       - "games-extra.js"
       - "games-cards.js"
       - "games-extra.css"
+      - "site.css"
+      - "site-personalize.js"
+      - "tests/site-personalize.test.cjs"
       - "tests/extra-games.test.cjs"
       - "tests/game-cards.test.cjs"
       - ".github/workflows/extra-games-test.yml"
@@ -26,4 +32,5 @@ jobs:
           node-version: '22'
       - run: node --check games-extra.js
       - run: node --check games-cards.js
-      - run: node --test tests/extra-games.test.cjs tests/game-cards.test.cjs
+      - run: node --check site-personalize.js
+      - run: node --test tests/extra-games.test.cjs tests/game-cards.test.cjs tests/site-personalize.test.cjs
