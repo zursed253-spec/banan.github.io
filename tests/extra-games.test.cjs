@@ -308,3 +308,14 @@ test('three- and four-player vanish teams start each round exactly once',()=>{
     opponent.cleanup.forEach(fn=>fn());
   }
 });
+
+
+test('all visible extra games also construct in local one-to-four-player mode',()=>{
+  for(const game of list.filter(item=>item.id!=='arena')){
+    for(const players of [1,2,3,4]){
+      const instance=ctx(game.id,180+players,0,null,true,players,true);
+      assert.ok(instance.root.children.length>0,game.id+' local '+players+' players');
+      instance.cleanup.forEach(fn=>fn());
+    }
+  }
+});
