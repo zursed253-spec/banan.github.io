@@ -49,7 +49,7 @@ function makeContext(id,players=2,local=false,me=0){
     canAct(player){return local||player===me;},
     who(player){return local?'Игрок '+(player+1):(player===me?'Вы':'Игрок '+(player+1));},
     send(message){this.sent.push(message);},
-    turn(){},
+    turn(player){this.activeTurn=player;},
     setStatus(text,player,extra,done){this.status={text,player,extra,done};},
     end(winner,extra){this.ended={winner,extra};},
     renderScore(){}
@@ -165,5 +165,25 @@ test('solo card-game seat allocator creates three bot opponents',()=>{
     const seats=find(ctx.root,'cg-seat');
     assert.ok(ctx.root.children.length>0,id+' starts a solo match against bots');
     ctx.cleanup.forEach(fn=>fn());
+  }
+});
+
+
+test('multiway poker accepts the current actor action and advances on every client',()=>{
+  for(const players of [2,3,4]){
+    const actor=players===4?3:0;
+    const receiver=(actor+1)%players;
+    const active=makeContext('poker',players,false,actor);
+    const peer=makeContext('poker',players,false,receiver);
+    assert.equal(active.activeTurn,actor,'the selected seat is first to act');
+    const call=find(active.root,'cg-action').find(button=>button.textContent==='Чек / колл');
+    assert.ok(call,'the first actor can call the big blind');
+    call.click();
+    const move=active.sent.find(message=>message.g==='poker');
+    assert.ok(move,'the poker action is broadcast');
+    peer.onMsg({...move,_from:actor});
+    assert.equal(peer.activeTurn,active.activeTurn,'the receiving client advances to the same next actor');
+    assert.equal(peer.sent.length,0,'remote poker actions are not echoed');
+    active.cleanup.forEach(fn=>fn());peer.cleanup.forEach(fn=>fn());
   }
 });
