@@ -102,7 +102,7 @@
       const el = document.createElement('div');
       el.className = 'poop-sticker';
       el.setAttribute('role', 'group');
-      el.setAttribute('aria-label', 'Какашка: ' + patterns[sticker.kind].title + '. Можно перемещать.');
+      el.setAttribute('aria-label', 'Какашка: ' + patterns[sticker.kind].title + '. Стрелками можно перемещать, Delete — убрать.');
       el.innerHTML = poopSvg(sticker.kind);
       position(el, sticker);
       const remove = document.createElement('button');
@@ -118,6 +118,23 @@
         save(); render();
       });
       el.appendChild(remove);
+      el.tabIndex = 0;
+      el.addEventListener('keydown', e => {
+        const shifts = {ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]};
+        if (shifts[e.key]) {
+          e.preventDefault();
+          const [dx,dy] = shifts[e.key];
+          const step = e.shiftKey ? 0.05 : 0.015;
+          sticker.x = Math.max(0.07, Math.min(0.93, sticker.x + dx * step));
+          sticker.y = Math.max(0.08, Math.min(0.92, sticker.y + dy * step));
+          position(el, sticker); save();
+        } else if (e.key === 'Delete' || e.key === 'Backspace') {
+          e.preventDefault();
+          const index = stickers.indexOf(sticker);
+          if (index !== -1) stickers.splice(index, 1);
+          save(); render();
+        }
+      });
 
       let start = null;
       el.addEventListener('pointerdown', e => {
