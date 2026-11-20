@@ -319,3 +319,38 @@ test('all visible extra games also construct in local one-to-four-player mode',(
     }
   }
 });
+
+
+test('turn-based team games relay valid moves to both a teammate and the opposing side',()=>{
+  const actions={
+    chess:c=>{find(c.root,'x-chess-cell')[52].click();find(c.root,'x-chess-cell')[36].click();},
+    checkers:c=>{find(c.root,'x-check-cell')[40].click();find(c.root,'x-check-cell')[33].click();},
+    gomoku:c=>find(c.root,'x-go-cell')[0].click(),
+    hex:c=>find(c.root,'x-hex-cell')[0].click(),
+    quoridor:c=>{
+      const svg=find(c.root,'x-q-board')[0];
+      const cell=svg.children.find(x=>x.tagName==='rect'&&x.attrs.x==='274'&&x.attrs.y==='475');
+      assert.ok(cell);cell.click();
+    },
+    mines:c=>find(c.root,'x-mine-cell')[0].click(),
+    memory:c=>find(c.root,'x-memory-cell')[0].click(),
+    blockade:c=>find(c.root,'x-block-cell')[37].click()
+  };
+  for(const [game,action] of Object.entries(actions)){
+    for(const players of [3,4]){
+      const seed=200+players;
+      const captain=ctx(game,seed,0,0,false,players,true);
+      const teammate=ctx(game,seed,0,2,false,players,true);
+      const opponent=ctx(game,seed,0,1,false,players,true);
+      const teammateLog=teammate.log.length,opponentLog=opponent.log.length;
+      action(captain);
+      const move=captain.sent.at(-1);
+      assert.ok(move,game+' emits a move for '+players+' players');
+      teammate.onMsg({...move,_from:0});
+      opponent.onMsg({...move,_from:0});
+      assert.ok(teammate.log.length>teammateLog,game+' teammate applies the move');
+      assert.ok(opponent.log.length>opponentLog,game+' opponent applies the move');
+      captain.cleanup.forEach(fn=>fn());teammate.cleanup.forEach(fn=>fn());opponent.cleanup.forEach(fn=>fn());
+    }
+  }
+});
