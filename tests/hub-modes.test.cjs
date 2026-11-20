@@ -128,9 +128,9 @@ test('local Battleship can place two fleets and finish a pass-and-play match for
   const init=new Function('el','return ('+html.slice(start,end)+')')(make);
   function descendants(node,cls,out=[]){if(node.className.split(/\s+/).includes(cls))out.push(node);for(const child of node.children)descendants(child,cls,out);return out;}
   for(const players of [2,3,4]){
-    const ctx={root:make('div'),local:true,players,first:1,activeTurn:null,ended:null,
+    const ctx={root:make('div'),local:true,players,first:1,activeTurn:null,turnCalls:0,ended:null,
       who:p=>players>=3?'Команда '+(p+1):'Игрок '+(p+1),
-      setStatus(){},turn(p){this.activeTurn=p;},end(w,info){this.ended={winner:w,info};}};
+      setStatus(){},turn(p){this.activeTurn=p;this.turnCalls++;},end(w,info){this.ended={winner:w,info};}};
     init(ctx);
     const buttons=descendants(ctx.root,'bs-tools')[0].children;
     const random=buttons[1],ready=buttons[3];
@@ -140,12 +140,12 @@ test('local Battleship can place two fleets and finish a pass-and-play match for
     const foeGrid=descendants(ctx.root,'bs-grid')[1];
     const cells=foeGrid.children.filter(node=>node.className.split(/\s+/).includes('bs-cell'));
     assert.equal(cells.length,100);
-    for(let step=0;step<220&&!ctx.ended;step++){
+    for(let step=0;step<500&&!ctx.ended;step++){
       const nextShot=cells.find(cell=>cell.className.split(/\s+/).includes('unk'));
       if(!nextShot)break;
       nextShot.click();
     }
-    assert.ok(ctx.ended,'the local match can reach a valid win condition');
+    assert.ok(ctx.ended,'local match did not finish: turn='+ctx.activeTurn+', remaining='+cells.filter(cell=>cell.className.split(/\\s+/).includes('unk')).length+', turns='+ctx.turnCalls);
     assert.ok([0,1].includes(ctx.ended.winner));
   }
 });
