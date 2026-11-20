@@ -160,3 +160,88 @@ const ep=localChess([[52,36],[8,16],[36,28],[11,27],[28,19]]);
 assert.equal(find(ep.root,'x-chess-cell')[19].textContent,'♙','en passant pawn landed');
 assert.equal(find(ep.root,'x-chess-cell')[27].textContent,'','en passant removed captured pawn');
 console.log('Chess checkmate and en passant scenarios passed');
+
+
+function testChessFeatures(){
+  const local=ctx('chess',91,0,null,true);
+  const cells=()=>find(local.root,'x-chess-cell');
+  const move=(from,to)=>{cells()[from].click();cells()[to].click();};
+  move(62,45); // Ng1-f3
+  move(6,21);  // Ng8-f6
+  move(45,62); // Nf3-g1
+  move(21,6);  // Nf6-g8
+  move(62,45);
+  move(6,21);
+  move(45,62);
+  move(21,6);
+  assert.equal(find(local.root,'x-chess-move-row').length,4,'move history groups plies into numbered rows');
+  const claim=find(local.root,'x-chess-claim')[0];
+  assert.ok(claim&&!claim.disabled,'threefold repetition can be claimed');
+  claim.click();
+  assert.match(local.log.at(-1)[2],/Ничья/,'threefold claim ends the game as a draw');
+  local.cleanup.forEach(fn=>fn());
+
+  const undoGame=ctx('chess',92,0,null,true);
+  const undoCells=()=>find(undoGame.root,'x-chess-cell');
+  undoCells()[52].click();undoCells()[36].click();
+  assert.equal(undoCells()[36].textContent,'♙','pawn reaches e4');
+  find(undoGame.root,'x-chess-undo')[0].click();
+  assert.equal(undoCells()[52].textContent,'♙','undo restores the original pawn square');
+  assert.equal(undoCells()[36].textContent,'','undo clears the destination');
+  assert.equal(find(undoGame.root,'x-chess-move-row').length,0,'undo restores move history');
+  undoGame.cleanup.forEach(fn=>fn());
+
+  const castle=ctx('chess',93,0,null,true);
+  const castleCells=()=>find(castle.root,'x-chess-cell');
+  const castleMove=(from,to)=>{castleCells()[from].click();castleCells()[to].click();};
+  castleMove(52,36);castleMove(12,28); // e4, ...e5
+  castleMove(62,45);castleMove(1,18);  // Nf3, ...Nc6
+  castleMove(61,34);castleMove(6,21);  // Bc4, ...Nf6
+  castleMove(60,62);                   // O-O
+  assert.equal(castleCells()[62].children.find(x=>x.className.includes('x-chess-piece'))?.textContent,'♔','castling moves the king two squares');
+  assert.equal(castleCells()[61].children.find(x=>x.className.includes('x-chess-piece'))?.textContent,'♖','castling also moves the rook');
+  assert.match(find(castle.root,'x-chess-move-row').at(-1).textContent,/O-O/,'castling is recorded in algebraic notation');
+  castle.cleanup.forEach(fn=>fn());
+  console.log('Chess history, threefold draw claim, undo and castling scenarios passed');
+}
+testChessFeatures();
+
+
+function testChessVisualsAndPromotion(){
+  const view=ctx('chess',105,0,null,true);
+  const ranks=find(view.root,'x-chess-ranks')[0],files=find(view.root,'x-chess-files')[0];
+  assert.equal(ranks.textContent,'87654321','ranks run from eight to one');
+  assert.equal(files.textContent,'abcdefgh','file letters appear outside board');
+  const firstPiece=find(view.root,'x-chess-piece')[0];
+  assert.equal(firstPiece.children[0].tagName,'svg','chess pieces use SVG instead of device fonts');
+  assert.equal(firstPiece.children[0].attrs.viewBox,'0 0 48 48','every SVG has scalable coordinates');
+  find(view.root,'x-chess-flip')[0].click();
+  assert.equal(ranks.textContent,'12345678','ranks flip with board');
+  assert.equal(files.textContent,'hgfedcba','file letters flip with board');
+  view.cleanup.forEach(fn=>fn());
+
+  const promotion=ctx('chess',106,0,null,true);
+  const squares=()=>find(promotion.root,'x-chess-cell');
+  const step=(a,b)=>{squares()[a].click();squares()[b].click();};
+  step(48,32); // a4
+  step(8,24);  // ...a5
+  step(49,33); // b4
+  step(24,33); // ...axb4
+  step(32,24); // a5
+  step(9,17);  // ...b6
+  step(24,17); // axb6
+  step(14,22); // ...g6
+  step(17,9);  // b7
+  step(13,21); // ...f6
+  step(9,0);   // bxa8=?
+  const buttons=find(promotion.root,'x-promo-btn');
+  assert.equal(buttons.length,4,'promotion offers queen, rook, bishop and knight');
+  buttons[0].click();
+  assert.equal(squares()[0].children.find(x=>x.className.includes('x-chess-piece'))?.textContent,'♕',
+    'selected queen is placed on promotion square');
+  assert.equal(find(promotion.root,'x-promo-btn').length,0,'promotion picker closes after move');
+  assert.match(find(promotion.root,'x-chess-move-row').at(-1).textContent,/=Q/,'promotion is recorded in SAN history');
+  promotion.cleanup.forEach(fn=>fn());
+  console.log('Chess SVG pieces, axis labels, board flip, and promotion passed');
+}
+testChessVisualsAndPromotion();

@@ -329,3 +329,5 @@ body.danger-flash{animation:dangerShake .38s ease-in-out}
 }
 
 .cg-color-dot.color-0{background:#355f91}.cg-color-dot.color-1{background:#bd4945}.cg-color-dot.color-2{background:#4d8159}.cg-color-dot.color-3{background:#b88630}
+
+/* Chess overrides are provided by site.css; retain shared game styles. */
