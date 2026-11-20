@@ -356,7 +356,9 @@ function connectServer(mode,code,maxPlayers=2){
     }else if(msg.t==='error'){
       if(msg.code==='code_taken'&&mode==='host'&&Net.state==='hosting'){
         Net.code=genCode();Net.open=false;
-        sendSignal({t:'host',code:Net.code});
+        sendSignal({t:'host',code:Net.code,maxPlayers:Net.maxPlayers});
+      }else if(msg.code==='game_in_progress'){
+        Net.msg='Партия уже началась. Попросите создателя вернуться в меню, чтобы присоединиться.';renderConn();
       }else if(msg.code==='not_connected'){
         Net.msg='Ожидаем подключения друга.';renderConn();
       }else fail({type:msg.code});
@@ -434,6 +436,10 @@ function makeCtx(id,first,n,players){
       if(this.botTurn)return true;
       if(local)return true;
       return teamGame&&count>=3 ? (this.me%2===t) : t===this.me;
+    },
+    canRemoteAct(t,from){
+      if(!Number.isInteger(from)||from<0||from>=count)return false;
+      return teamGame&&count>=3 ? from%2===t : from===t;
     },
     who(p){
       if(count===1&&(teamGame||id==='ttt'))return p===0?'Вы':'Компьютер';
@@ -564,9 +570,13 @@ function makeCtx(id,first,n,players){
       const size=scoreSize;
       const sc=scores[id]||(scores[id]=Array.from({length:size},()=>0));
       while(sc.length<size)sc.push(0);
-      if(w!==null&&w!==undefined&&Number.isInteger(w)&&sc[w]!==undefined)sc[w]++;
-      const t=w===null?'Ничья':(count===1&&w===1&&(teamGame||id==='ttt')?'Победил: Компьютер':(local?'Победил: '+this.who(w):(w===this.pov?'Вы победили':'Победила '+this.who(w))));
-      this.setStatus(t,w===null?null:w,extra,true);
+      if(w==='all')for(let i=0;i<size;i++)sc[i]++;
+      else if(w!==null&&w!==undefined&&Number.isInteger(w)&&sc[w]!==undefined)sc[w]++;
+      const t=w==='all'?(count===1?'Подземелье пройдено':'Победа отряда')
+        :w==='loss'?'Отряд потерпел поражение'
+        :w===null?'Ничья'
+        :(count===1&&w===1&&(teamGame||id==='ttt')?'Победил: Компьютер':(local?'Победил: '+this.who(w):(w===this.pov?'Вы победили':'Победила '+this.who(w))));
+      this.setStatus(t,w===null||w==='all'||w==='loss'?null:w,extra,true);
       this.root.inert=false;this.root.style.pointerEvents='';
       this.renderScore();
     },
@@ -640,7 +650,7 @@ Games.ttt={init(ctx){
     if(over||board[i]!==null||!ctx.canAct(turn))return;
     apply(i);ctx.send({m:i});
   }
-  ctx.onMsg=d=>{if(!over&&Number.isInteger(d?.m))apply(d.m);};
+  ctx.onMsg=d=>{if(!over&&ctx.canRemoteAct(turn,d?._from)&&Number.isInteger(d?.m))apply(d.m);};
   draw();ctx.turn(turn,players>=3?'Поле 6×6 · четыре в ряд':'Классика 3×3');
 }};
 /* ====================== ЧЕТЫРЕ В РЯД ====================== */
@@ -681,7 +691,7 @@ Games.c4={init(ctx){
     if(over||!ctx.canAct(turn))return;
     if(apply(c))ctx.send({m:c});
   }
-  ctx.onMsg=d=>{if(!over)apply(d.m);};
+  ctx.onMsg=d=>{if(!over&&ctx.canRemoteAct(turn,d?._from))apply(d.m);};
   draw();ctx.turn(turn);
 }};
 
@@ -792,7 +802,7 @@ Games.dots={init(ctx){
     if(over||!ctx.canAct(turn))return;
     if(apply(k,r,c))ctx.send({m:[k,r,c]});
   }
-  ctx.onMsg=d=>{if(!over)apply(d.m[0],d.m[1],d.m[2]);};
+  ctx.onMsg=d=>{if(!over&&Array.isArray(d?.m)&&ctx.canRemoteAct(turn,d?._from))apply(d.m[0],d.m[1],d.m[2]);};
   draw();ctx.turn(turn,info());
 }};
 
