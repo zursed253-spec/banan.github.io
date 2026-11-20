@@ -245,3 +245,21 @@ function testChessVisualsAndPromotion(){
   console.log('Chess SVG pieces, axis labels, board flip, and promotion passed');
 }
 testChessVisualsAndPromotion();
+
+
+test('every additional strategy game advertises one to four seats',()=>{
+  for(const game of list){
+    assert.equal(game.minPlayers,1,game.id+' has a solo mode');
+    assert.equal(game.maxPlayers,4,game.id+' supports four participants');
+    assert.equal(game.teamGame,true,game.id+' declares its two-team format');
+  }
+});
+
+test('remote teammate moves are accepted by a shared team board',()=>{
+  const host=ctx('gomoku',120,0,0,false);
+  host.onMsg({i:112,_from:2});
+  const occupied=find(host.root,'x-go-stone');
+  assert.equal(occupied.length,1,'a move from the other seat on the same team updates the shared board');
+  assert.ok(occupied[0].className.includes('p0'),'teammate move is applied to the correct team colour');
+  host.cleanup.forEach(fn=>fn());
+});
