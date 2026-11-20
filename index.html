@@ -485,7 +485,7 @@ function makeCtx(id,first,n,players){
           const free=edges.map((x,i)=>x.className.baseVal?.includes('p')||String(x.getAttribute('class')).match(/\bp[01]\b/)?-1:i).filter(i=>i>=0);
           if(!free.length)return false;
           const i=free[Math.floor(Math.random()*free.length)];
-          hits[i]?.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+          hits[i]?.click();
           return !!hits[i];
         }
         case 'chess': {
@@ -777,7 +777,8 @@ Games.dots={init(ctx){
 Games.bs={init(ctx){
   const N=10,FLEET=[5,4,3,3,2],LET='АБВГДЕЖЗИК'.split('');
   let placed=FLEET.map(()=>null),grid=Array(100).fill(-1),inc=Array(100).fill(0),foe=Array(100).fill(0);
-  let phase='place',horiz=true,hover=-1,myReady=false,oppReady=false,pending=false,turn=ctx.first,foeSunk=0;
+  const solo=ctx.local&&ctx.players===1,enemyGrid=Array(100).fill(-1),enemyShips=FLEET.map(()=>null);
+  let phase='place',horiz=true,hover=-1,myReady=false,oppReady=false,pending=false,turn=ctx.first,foeSunk=0,enemySunk=0;
   const root=ctx.root;root.innerHTML='';
   const wrap=el('div','bs');root.appendChild(wrap);
   const sideA=el('div','bs-side'),sideB=el('div','bs-side');wrap.append(sideA,sideB);
@@ -822,6 +823,22 @@ Games.bs={init(ctx){
     return out;
   }
   const canPlace=cs=>!!cs&&cs.every(c=>grid[c]===-1);
+  function randomizeEnemy(){
+    enemyGrid.fill(-1);
+    FLEET.forEach((len,idx)=>{
+      let cs;
+      do{cs=cellsFor(Math.floor(Math.random()*100),len,Math.random()<.5);}
+      while(!cs||cs.some(c=>enemyGrid[c]!==-1));
+      enemyShips[idx]=cs;cs.forEach(c=>enemyGrid[c]=idx);
+    });
+  }
+  function cpuShoot(){
+    const available=inc.map((v,i)=>v===0?i:-1).filter(i=>i>=0);
+    if(!available.length)return;
+    const i=available[Math.floor(Math.random()*available.length)];
+    onShot(i);
+  }
+
   function rebuild(){grid.fill(-1);placed.forEach((cs,idx)=>{if(cs)cs.forEach(c=>grid[c]=idx);});}
   function randomize(){
     placed=FLEET.map(()=>null);grid.fill(-1);
@@ -859,7 +876,7 @@ Games.bs={init(ctx){
     });
   }
   function drawFoe(){
-    const act=phase==='battle'&&turn===ctx.me&&!pending;
+    const act=phase==='battle'&&ctx.canAct(turn)&&!pending;
     foeG.g.classList.toggle('active',act);
     foeG.g.classList.toggle('idle',phase==='place'||phase==='wait');
     foeG.cells.forEach((b,i)=>{
@@ -889,13 +906,29 @@ Games.bs={init(ctx){
   }
   function ready(){
     if(phase!=='place'||!placed.every(Boolean))return;
-    myReady=true;ctx.send({k:'ready'});
+    myReady=true;
+    if(solo){randomizeEnemy();oppReady=true;begin();return;}
+    ctx.send({k:'ready'});
     if(oppReady)begin();
     else{phase='wait';drawAll();ctx.setStatus('Ждём, пока соперник расставит корабли…');}
   }
   function begin(){phase='battle';drawAll();ctx.turn(turn,info());}
   function shoot(i){
-    if(phase!=='battle'||turn!==ctx.me||pending||foe[i]!==0)return;
+    if(phase!=='battle'||!ctx.canAct(turn)||pending||foe[i]!==0)return;
+    if(solo){
+      const ship=enemyGrid[i];
+      let result='miss';
+      if(ship>=0){
+        result='hit';
+        const sunk=enemyShips[ship].every(c=>foe[c]===2||c===i);
+        foe[i]=2;
+        if(sunk){result='sunk';enemyShips[ship].forEach(c=>foe[c]=3);enemySunk++;}
+      }else foe[i]=1;
+      if(enemySunk===FLEET.length){phase='done';drawAll();ctx.end(0,'Вы потопили весь флот компьютера');return;}
+      turn=result==='miss'?1:0;
+      drawAll();ctx.turn(turn,info());
+      return;
+    }
     pending=true;drawFoe();ctx.send({k:'shot',i});
   }
   function onShot(i){
@@ -910,8 +943,8 @@ Games.bs={init(ctx){
       }else r='hit';
     }
     ctx.send({k:'res',i,r,cells,over});
-    if(over){phase='done';drawAll();ctx.end(1-ctx.me,info());return;}
-    turn=r==='miss'?ctx.me:1-ctx.me;
+    if(over){phase='done';drawAll();ctx.end(solo?1:1-ctx.team,info());return;}
+    turn=r==='miss'?ctx.team:1-ctx.team;
     drawAll();ctx.turn(turn,info());
   }
   function onRes(d){
@@ -920,9 +953,10 @@ Games.bs={init(ctx){
     else if(d.r==='hit')foe[d.i]=2;
     else{d.cells.forEach(c=>foe[c]=3);foeSunk++;}
     if(d.over){phase='done';drawAll();ctx.end(ctx.me,info());return;}
-    turn=d.r==='miss'?1-ctx.me:ctx.me;
+    turn=d.r==='miss'?1-ctx.team:ctx.team;
     drawAll();ctx.turn(turn,info());
   }
+  if(solo)ctx.botMove=cpuShoot;
   ctx.onMsg=d=>{
     if(d.k==='ready'){oppReady=true;if(myReady&&phase==='wait')begin();else placeStatus();}
     else if(d.k==='shot')onShot(d.i);
