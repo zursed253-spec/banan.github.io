@@ -439,7 +439,7 @@
         else if(type==='fifty'&&canClaimFifty()) setDraw('Ничья — правило 50 ходов');
       }
       ctx.onMsg=d=>{
-        if(!d||typeof d!=='object') return;
+        if(!d||typeof d!=='object'||!ctx.canRemoteAct(turn,d._from)) return;
         if(d.claim==='threefold'||d.claim==='fifty') { acceptClaim(d.claim); return; }
         if(Number.isInteger(d.from)&&Number.isInteger(d.to)) tryMove(d.from,d.to,d.promotion||'q',true);
       };
@@ -531,7 +531,7 @@
           boardEl.append(cell);
         }
       }
-      ctx.onMsg=d=>{if(d)apply(d.from,d.to,true);};draw();ctx.turn(turn,'Светлые шашки начинают');
+      ctx.onMsg=d=>{if(d&&ctx.canRemoteAct(turn,d._from))apply(d.from,d.to,true);};draw();ctx.turn(turn,'Светлые шашки начинают');
     }
     U.register('checkers','Русские шашки','Дамки, обязательное взятие и многоходовые комбинации.',true,checkersIcon,checkersInit);
 
@@ -574,7 +574,7 @@
           if(b[i]!==null)cell.append(U.make('span','x-go-stone p'+b[i]));
         });
       }
-      ctx.onMsg=d=>{if(d)move(d.i,true);};draw();ctx.turn(turn,'Синие начинают');
+      ctx.onMsg=d=>{if(d&&ctx.canRemoteAct(turn,d._from))move(d.i,true);};draw();ctx.turn(turn,'Синие начинают');
     }
     U.register('gomoku','Гомоку','Глубокая стратегия на поле 15×15: соберите пять в ряд.',true,gomokuIcon,gomokuInit);
 
@@ -624,7 +624,7 @@
         if(!remote)ctx.send({i});
       }
       function draw(){cells.forEach((cell,i)=>{cell.className='x-hex-tile'+(b[i]===null?'':' p'+b[i])+(winning.has(i)?' winning':'');});}
-      ctx.onMsg=d=>{if(d)move(d.i,true);};draw();ctx.turn(turn,'Синие соединяют верх и низ');
+      ctx.onMsg=d=>{if(d&&ctx.canRemoteAct(turn,d._from))move(d.i,true);};draw();ctx.turn(turn,'Синие соединяют верх и низ');
     }
     U.register('hex','Гекс','Постройте непрерывную цепь через шестиугольное поле.',true,hexIcon,hexInit);
 
@@ -742,7 +742,7 @@
           }
         }
       }
-      ctx.onMsg=d=>act(d,true);draw();ctx.turn(turn,'Пешка 1 идёт вверх, пешка 2 — вниз');
+      ctx.onMsg=d=>{if(d&&ctx.canRemoteAct(turn,d._from))act(d,true);};draw();ctx.turn(turn,'Пешка 1 идёт вверх, пешка 2 — вниз');
     }
     U.register('quoridor','Коридор','Дуэль маршрутов: стройте стены и обходите ловушки.',true,quoridorIcon,quoridorInit);
 
@@ -786,14 +786,14 @@
       }
       function draw(){
         scorebar.textContent='';
-        scorebar.append(U.make('span','x-token','Игрок 1: '+points[0]),U.make('span','x-token','Игрок 2: '+points[1]),U.make('span','x-token','Осталось: '+remaining));
+        scorebar.append(U.make('span','x-token',ctx.who(0)+': '+points[0]),U.make('span','x-token',ctx.who(1)+': '+points[1]),U.make('span','x-token','Осталось: '+remaining));
         cells.forEach((cell,i)=>{
           cell.className='x-mine-cell'+(shown[i]?' opened':'')+(shown[i]&&field[i]?' bomb':'')+(last===i?' last':'');
           cell.textContent=shown[i]?(field[i]?'✹':count[i]?String(count[i]):''):'';
           if(shown[i]&&!field[i]&&count[i])cell.classList.add('digit-'+count[i]);
         });
       }
-      ctx.onMsg=d=>{if(d)pick(d.i,true);};draw();ctx.turn(turn,'Начните разведку поля');
+      ctx.onMsg=d=>{if(d&&ctx.canRemoteAct(turn,d._from))pick(d.i,true);};draw();ctx.turn(turn,'Начните разведку поля');
     }
     U.register('mines','Сапёр-дуэль','Риск, тактика, цепные открытия и борьба за очки.',true,mineIcon,minesInit);
 
@@ -837,7 +837,7 @@
         draw();
       }
       function draw(){
-        bar.textContent='';bar.append(U.make('span','x-token','Пары 1: '+points[0]),U.make('span','x-token','Пары 2: '+points[1]));
+        bar.textContent='';bar.append(U.make('span','x-token',ctx.who(0)+' · пары: '+points[0]),U.make('span','x-token',ctx.who(1)+' · пары: '+points[1]));
         cells.forEach((cell,i)=>{
           const owner=matched[i],open=show.has(i);
           cell.className='x-memory-cell'+(open?' flipped':'')+(owner!==null?' matched p'+owner:'');
@@ -845,7 +845,7 @@
           cell.disabled=owner!==null||pending;
         });
       }
-      ctx.onMsg=d=>{if(d)flip(d.i,true);};draw();ctx.turn(turn,'Запоминайте карточки');
+      ctx.onMsg=d=>{if(d&&ctx.canRemoteAct(turn,d._from))flip(d.i,true);};draw();ctx.turn(turn,'Запоминайте карточки');
     }
     U.register('memory','Дуэль памяти','36 скрытых карточек: открывайте пары и обгоняйте соперника.',true,memoryIcon,memoryInit);
 
@@ -1317,8 +1317,8 @@
         hud.textContent='';
         hud.append(
           U.make('span','x-token','Раунд '+Math.min(round+1,ROUNDS)+' / '+ROUNDS),
-          U.make('span','x-token','Игрок 1: '+score[0]),
-          U.make('span','x-token','Игрок 2: '+score[1]),
+          U.make('span','x-token',ctx.who(0)+': '+score[0]),
+          U.make('span','x-token',ctx.who(1)+': '+score[1]),
           U.make('span','x-token',phase==='study'?'Запоминайте: '+studyLeft+'с':phase==='remove'?'Выберите предмет':phase==='guess'?'Угадайте пропажу':phase==='reveal'?(puzzle.correct?'Верно!':'Неверно!'):phase==='waiting'?'Ожидание следующего раунда':'Готово')
         );
       }
@@ -1434,14 +1434,14 @@
       ctx.onMsg=d=>{
         if(!d||typeof d.k!=='string')return;
         if(d.k==='vanish-start'){
-          if((d.turn!==0&&d.turn!==1)||!Number.isInteger(d.round))return;
+          if((d.turn!==0&&d.turn!==1)||!Number.isInteger(d.round)||!ctx.canRemoteAct(d.turn,d._from))return;
           turn=d.turn;round=d.round;
           beginRound(true);
         }else if(d.k==='vanish-hide'){
-          if(d.turn!==turn||d.round!==round)return;
+          if(d.turn!==turn||d.round!==round||!ctx.canRemoteAct(turn,d._from))return;
           removeItem(d.id,true);
         }else if(d.k==='vanish-guess'){
-          if(d.turn!==turn||d.round!==round)return;
+          if(d.turn!==turn||d.round!==round||!ctx.canRemoteAct(1-turn,d._from))return;
           choose(d.id,true);
         }
       };
@@ -1537,7 +1537,7 @@
       }
       function draw(){
         hud.textContent='';
-        hud.append(U.make('span','x-token','Стены игрока 1: '+remaining[0]),U.make('span','x-token','Стены игрока 2: '+remaining[1]),U.make('span','x-token','Выбрана фишка: '+(selected+1)));
+        hud.append(U.make('span','x-token','Стены '+ctx.who(0)+': '+remaining[0]),U.make('span','x-token','Стены '+ctx.who(1)+': '+remaining[1]),U.make('span','x-token','Выбрана фишка: '+(selected+1)));
         tools.textContent='';
         const bMove=U.button('btn'+(mode==='move'?' primary':''),'Ход',()=>{mode='move';draw();}); bMove.textContent='Ход';
         const bWallH=U.button('btn'+(mode==='wall-h'?' primary':''),'Гор. стена',()=>{mode='wall-h';draw();}); bWallH.textContent='Гор. стена';
@@ -1583,7 +1583,7 @@
         }
       }
       ctx.onMsg=d=>{
-        if(!d||typeof d.k!=='string') return;
+        if(!d||typeof d.k!=='string'||!ctx.canRemoteAct(turn,d._from)) return;
         if(d.k==='block-move') movePawn(d.index,d.r,d.c,true);
         else if(d.k==='block-wall') placeWall(d.type,d.r,d.c,true);
       };
