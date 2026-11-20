@@ -71,6 +71,10 @@
       const info = U.make('aside', 'x-chess-info');
       const bar = U.make('div', 'x-hud x-chess-players');
       const boardEl = U.make('div', 'x-chess');
+      const frame = U.make('div','x-chess-frame');
+      const rankLabels = U.make('div','x-chess-ranks');
+      const fileLabels = U.make('div','x-chess-files');
+      frame.append(rankLabels,boardEl,fileLabels);
       const promoPanel = U.make('div', 'x-promotion');
       const tools = U.make('div', 'x-tools x-chess-controls');
       const undoBtn = U.button('btn x-chess-undo', 'Отменить последний ход', undo);
@@ -81,13 +85,32 @@
       const historyEmpty = U.make('div', 'x-chess-history-empty', 'Ходы появятся здесь');
       area.append(shell);
       shell.append(main, info);
-      main.append(bar, boardEl, promoPanel, tools);
+      main.append(bar, frame, promoPanel, tools);
       info.append(historyTitle, historyList, historyEmpty);
       tools.append(undoBtn, flipBtn, claimBtn);
       boardEl.setAttribute('role', 'grid');
       boardEl.setAttribute('aria-label', 'Шахматная доска, 8 на 8');
 
       const glyph = {K:'♔',Q:'♕',R:'♖',B:'♗',N:'♘',P:'♙',k:'♚',q:'♛',r:'♜',b:'♝',n:'♞',p:'♟'};
+      const pieceNames = {k:'король',q:'ферзь',r:'ладья',b:'слон',n:'конь',p:'пешка'};
+      // Hand-drawn Staunton-inspired SVG paths: identical appearance on iOS, Android and desktop.
+      const shapes = {
+        p: '<circle class="shape" cx="24" cy="12" r="6.7"/><path class="shape" d="M19.5 19.3 Q24 21 28.5 19.3 L30.5 31.6 L17.5 31.6Z"/><path class="shape" d="M16 31.2 Q24 28.9 32 31.2 L34 37.3 H14Z"/><path class="detail" d="M17 34 H31"/>',
+        r: '<path class="shape" d="M13 7 H19 V12 H22 V7 H26 V12 H29 V7 H35 V15 L31 18 L30.4 32 H17.6 L17 18 L13 15Z"/><path class="shape" d="M15.6 30.5 H32.4 L34.6 37.5 H13.4Z"/><path class="detail" d="M16 15 H32 M19 19 H29 M17 33 H31"/>',
+        n: '<path class="shape" d="M17 34 L15.1 29 Q10 26 11 20 L16 11 L23 7 L28 12 L36 28 L33 34Z"/><path class="shape" d="M14 33.4 H34 L36 37.5 H12Z"/><circle class="eye" cx="20" cy="17" r="1.75"/><path class="detail" d="M14 24 L20 23 L23 27 M28 14 L33 21"/>',
+        b: '<circle class="shape" cx="24" cy="8" r="3"/><path class="shape" d="M24 12 C17 12 15 20 17 24 L20 30 H28 L31 24 C33 20 31 12 24 12Z"/><path class="shape" d="M17 29 H31 L32.5 33 H15.5Z M14 33 H34 L36 37.5 H12Z"/><path class="detail" d="M28 14 L21 26 M18 23 H30 M17 34 H31"/>',
+        q: '<path class="shape" d="M11 14 L17 23 L19.5 11.5 L24 23 L28.5 11.5 L31 23 L37 14 L33 30 H15Z"/><circle class="shape" cx="10.5" cy="11" r="2.5"/><circle class="shape" cx="19" cy="8" r="2.5"/><circle class="shape" cx="29" cy="8" r="2.5"/><circle class="shape" cx="37.5" cy="11" r="2.5"/><path class="shape" d="M15 30 H33 L34.5 33 H13.5Z M12 33 H36 L37 38 H11Z"/><path class="detail" d="M16 27 H32 M14 34 H34"/>',
+        k: '<path class="shape" d="M22 5 H26 V10 H31 V14 H26 V19 H22 V14 H17 V10 H22Z"/><path class="shape" d="M20 18 Q14 20 17 28 L20 30 H28 L31 28 Q34 20 28 18Z"/><path class="shape" d="M17 29 H31 L33 33 H15Z M13 33 H35 L37 38 H11Z"/><path class="detail" d="M19 23 H29 M15 34 H33"/>'
+      };
+      function pieceSvg(piece) {
+        const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
+        svg.setAttribute('viewBox','0 0 48 48');
+        svg.setAttribute('class','x-chess-svg');
+        svg.setAttribute('aria-hidden','true');
+        svg.setAttribute('focusable','false');
+        svg.innerHTML=shapes[piece.toLowerCase()];
+        return svg;
+      }
       let b = 'rnbqkbnrpppppppp................................PPPPPPPPRNBQKBNR'.split('').map(p => p === '.' ? null : p);
       let rights = {K:true,Q:true,k:true,q:true};
       let ep = -1, turn = 0, last = [], selected = -1, ended = false, pending = null;
@@ -334,7 +357,8 @@
         for(const piece of ['q','r','b','n']) {
           const sym=turn===0?piece.toUpperCase():piece;
           const button=U.button('x-promo-btn','Превратить в '+({q:'ферзя',r:'ладью',b:'слона',n:'коня'}[piece]),()=>{
-            promoPanel.textContent=''; tryMove(from,to,piece,false);
+            if(!pending||pending.from!==from||pending.to!==to)return;
+            pending=null;promoPanel.textContent='';tryMove(from,to,piece,false);
           });
           button.textContent=glyph[sym]; promoPanel.append(button);
         }
@@ -377,6 +401,11 @@
       }
       function draw() {
         boardEl.textContent='';
+        rankLabels.textContent=''; fileLabels.textContent='';
+        for(let axis=0;axis<8;axis++){
+          rankLabels.append(U.make('span','x-chess-axis-label',String(flipped?axis+1:8-axis)));
+          fileLabels.append(U.make('span','x-chess-axis-label','abcdefgh'[flipped?7-axis:axis]));
+        }
         const legal=selected>=0?legalAt(b,selected,turn,ep,rights).map(m=>m.to):[];
         const checkedKing=currentCheck()?kingSquare(b,turn):-1;
         for(let visual=0;visual<64;visual++) {
@@ -384,13 +413,17 @@
           const cell=U.button('x-chess-cell'+((r+c)%2===0?' light':' dark')+
             (selected===i?' selected':'')+(legal.includes(i)?' legal':'')+
             (last.includes(i)?' last':'')+(checkedKing===i?' in-check':'')+(piece?' has-piece':''),
-            'Клетка '+squareName(i),()=>click(i));
+            'Клетка '+squareName(i)+(piece?', '+(side(piece)===0?'белая ':'чёрная ')+pieceNames[piece.toLowerCase()]:''),()=>click(i));
           cell.setAttribute('role','gridcell');
           cell.setAttribute('aria-pressed',selected===i?'true':'false');
           const showRank=flipped?c===7:c===0, showFile=flipped?r===0:r===7;
-          if(showRank) cell.append(U.make('span','x-chess-coordinate x-chess-rank',String(8-r)));
-          if(showFile) cell.append(U.make('span','x-chess-coordinate x-chess-file','abcdefgh'[c]));
-          if(piece) cell.append(U.make('span','x-chess-piece '+(side(piece)===0?'white':'black'),glyph[piece]));
+          // Coordinates are rendered outside the board for clear edges on small screens.
+          if(piece){
+            const span=U.make('span','x-chess-piece '+(side(piece)===0?'white':'black'),glyph[piece]);
+            span.setAttribute('aria-hidden','true');
+            span.append(pieceSvg(piece));
+            cell.append(span);
+          }
           boardEl.append(cell);
         }
         bar.textContent='';
