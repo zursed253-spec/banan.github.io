@@ -460,7 +460,7 @@ function makeCtx(id,first,n,players){
     },
     scheduleBot(){
       if(this.botTimer!==null)clearTimeout(this.botTimer);
-      if(!this.botCleanupAdded){this.botCleanupAdded=true;this.cleanup.push(()=>{if(this.botTimer!==null)clearTimeout(this.botTimer);this.botTimer=null;});}
+      if(!this.botCleanupAdded){this.botCleanupAdded=true;this.cleanup.push(()=>{if(this.botTimer!==null)clearTimeout(this.botTimer);this.botTimer=null;this.root.inert=false;this.root.style.pointerEvents='';});}
       const run=()=>{
         this.botTimer=null;
         if(cur?.ctx!==this||!this.root||!this.root.isConnected&&this.root.parentNode===null)return;
