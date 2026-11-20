@@ -419,11 +419,28 @@ function requestStart(id){
 /* ====================== ЗАПУСК ИГРЫ ====================== */
 function makeCtx(id,first,n,players){
   const local=Net.state==='local';
+  const meta=LIST.find(g=>g.id===id)||{};
+  const teamGame=!!meta.teamGame;
+  const count=Math.max(1,Math.min(4,Number(players)||Net.players||2));
   const ctx={
-    id,first,n,players:Math.max(1,Number(players)||Net.players||2),maxPlayers:Net.maxPlayers,local,me:local?null:Net.role,pov:local?0:Net.role,root:$('#board'),cleanup:[],onMsg:null,
-    canAct(t){return local||t===this.me;},
-    who(p){return local?'Игрок '+(p+1):(p===this.me?'Вы':'Игрок '+(p+1));},
-    send(d){if(!local&&Net.conn&&Net.conn.open)Net.conn.send({t:'g',n,d});},
+    id,first:(local&&count===1?0:first),n,players:count,maxPlayers:Net.maxPlayers,
+    teamGame,team:local?0:(teamGame?Net.role%2:Net.role),
+    local,me:local?null:Net.role,pov:local?0:(teamGame?Net.role%2:Net.role),
+    root:$('#board'),cleanup:[],onMsg:null,botTurn:false,botTimer:null,
+    canAct(t){
+      if(this.botTurn)return true;
+      if(local){
+        if(count===1&&(teamGame||id==='ttt'))return t===0;
+        return true;
+      }
+      return teamGame&&count>=3 ? (this.me%2===t) : t===this.me;
+    },
+    who(p){
+      if(count===1&&p===1&&(teamGame||id==='ttt'))return 'Компьютер';
+      if(teamGame&&count>=3)return 'Команда '+(p+1);
+      return local?'Игрок '+(p+1):(p===this.me?'Вы':'Игрок '+(p+1));
+    },
+    send(d){if(!this.botTurn&&!local&&Net.conn&&Net.conn.open)Net.conn.send({t:'g',n,d});},
     setStatus(text,p,extra,done){
       const s=$('#status');s.innerHTML='';s.className='status'+(done?' done':'');
       if(p!=null)s.appendChild(chip(p));
@@ -431,22 +448,111 @@ function makeCtx(id,first,n,players){
       if(extra)s.appendChild(el('span','st-extra',extra));
     },
     turn(p,extra){
-      const t=local?'Ход: '+this.who(p):(p===this.me?'Ваш ход':'Ход соперника');
+      const t=local?'Ход: '+this.who(p):(this.canAct(p)?'Ваш ход':'Ход '+this.who(p));
       this.setStatus(t,p,extra);
+      if(local&&count===1&&(teamGame||id==='ttt')&&p===1)this.scheduleBot();
+    },
+    scheduleBot(){
+      if(this.botTimer!==null)clearTimeout(this.botTimer);
+      const run=()=>{
+        this.botTimer=null;
+        if(cur?.ctx!==this||!this.root||!this.root.isConnected&&this.root.parentNode===null)return;
+        this.botTurn=true;
+        try{this.botMove();}catch(error){console.error('Banan bot move failed:',id,error);}
+        this.botTurn=false;
+      };
+      this.botTimer=setTimeout(run,420);
+      this.cleanup.push(()=>{if(this.botTimer!==null)clearTimeout(this.botTimer);this.botTimer=null;});
+    },
+    botMove(){
+      const all=selector=>Array.from(this.root.querySelectorAll(selector));
+      const click=items=>{if(!items.length)return false;items[Math.floor(Math.random()*items.length)].click();return true;};
+      const cells=selector=>all(selector);
+      switch(id){
+        case 'ttt': {
+          const a=cells('.ttt-cell');
+          const empty=a.filter(x=>!x.textContent.trim());
+          return click(empty);
+        }
+        case 'c4': {
+          const a=cells('.c4-cell');
+          const top=a.slice(0,7);
+          return click(top.filter(x=>!x.className.includes('p')));
+        }
+        case 'rev': return click(cells('.rev-cell.hint'));
+        case 'dots': {
+          const edges=cells('line.edge'),hits=cells('line.hit');
+          const free=edges.map((x,i)=>x.className.baseVal?.includes('p')||String(x.getAttribute('class')).match(/\bp[01]\b/)?-1:i).filter(i=>i>=0);
+          if(!free.length)return false;
+          const i=free[Math.floor(Math.random()*free.length)];
+          hits[i]?.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+          return !!hits[i];
+        }
+        case 'chess': {
+          const a=cells('.x-chess-cell');
+          const pieces=a.filter(x=>(x.getAttribute('aria-label')||'').includes('чёрная'));
+          for(const piece of pieces.sort(()=>Math.random()-.5)){
+            piece.click();
+            const legal=cells('.x-chess-cell.legal');
+            if(legal.length)return click(legal);
+          }
+          return false;
+        }
+        case 'checkers': {
+          const a=cells('.x-check-cell');
+          const pieces=a.filter(x=>Array.from(x.children||[]).some(ch=>String(ch.className).includes('x-check-piece p1')));
+          for(const piece of pieces.sort(()=>Math.random()-.5)){
+            piece.click();
+            const legal=cells('.x-check-cell.possible');
+            if(legal.length)return click(legal);
+          }
+          return false;
+        }
+        case 'gomoku': return click(cells('.x-go-cell').filter(x=>!x.children.length));
+        case 'hex': return click(cells('.x-hex-tile').filter(x=>!/\bp[01]\b/.test(x.className)));
+        case 'quoridor': {
+          const move=cells('.x-mode').find(x=>x.textContent.includes('Ход пешкой'));
+          if(move)move.click();
+          return click(cells('.x-q-cell.available'));
+        }
+        case 'mines': return click(cells('.x-mine-cell').filter(x=>!x.className.includes('opened')));
+        case 'memory': {
+          const free=cells('.x-memory-cell').filter(x=>!x.className.includes('matched')&&!x.className.includes('flipped'));
+          if(free.length<2)return false;
+          free[0].click();
+          const rest=cells('.x-memory-cell').filter(x=>!x.className.includes('matched')&&!x.className.includes('flipped'));
+          if(rest.length)rest[Math.floor(Math.random()*rest.length)].click();
+          return true;
+        }
+        case 'vanish': {
+          const selectable=cells('.x-vanish-item.selectable');
+          if(selectable.length)return click(selectable);
+          const options=cells('.x-vanish-choice').filter(x=>!x.disabled);
+          return click(options);
+        }
+        case 'blockade': {
+          const pawns=cells('.x-block-cell.pawn.p1');
+          if(pawns.length)pawns[Math.floor(Math.random()*pawns.length)].click();
+          return click(cells('.x-block-cell.hint'));
+        }
+        default: return false;
+      }
     },
     end(w,extra){
-      const sc=scores[id]||(scores[id]=Array.from({length:this.players},()=>0));
-      while(sc.length<this.players)sc.push(0);
+      const size=teamGame?2:Math.max(count,id==='ttt'&&count===1?2:count);
+      const sc=scores[id]||(scores[id]=Array.from({length:size},()=>0));
+      while(sc.length<size)sc.push(0);
       if(w!==null&&w!==undefined&&Number.isInteger(w)&&sc[w]!==undefined)sc[w]++;
-      const t=w===null?'Ничья':(local?'Победил: '+this.who(w):(w===this.me?'Вы победили':'Победил игрок '+(w+1)));
+      const t=w===null?'Ничья':(count===1&&w===1&&(teamGame||id==='ttt')?'Победил: Компьютер':(local?'Победил: '+this.who(w):(w===this.pov?'Вы победили':'Победила '+this.who(w))));
       this.setStatus(t,w===null?null:w,extra,true);
       this.renderScore();
     },
     renderScore(){
-      const sc=scores[id]||(scores[id]=Array.from({length:this.players},()=>0));
-      while(sc.length<this.players)sc.push(0);
+      const size=teamGame?2:Math.max(count,id==='ttt'&&count===1?2:count);
+      const sc=scores[id]||(scores[id]=Array.from({length:size},()=>0));
+      while(sc.length<size)sc.push(0);
       const s=$('#score');s.innerHTML='';
-      for(let i=0;i<this.players;i++)s.append(chip(i),el('span','score-name',this.who(i)),el('b','',String(sc[i])));
+      for(let i=0;i<size;i++)s.append(chip(i),el('span','score-name',this.who(i)),el('b','',String(sc[i])));
     }
   };
   return ctx;
@@ -476,30 +582,44 @@ $('#bAgain').onclick=()=>{if(cur)requestStart(cur.id);};
 /* ====================== КРЕСТИКИ-НОЛИКИ ====================== */
 Games.ttt={init(ctx){
   const root=ctx.root;root.innerHTML='';
-  const wrap=el('div','ttt');root.appendChild(wrap);
-  const L=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
-  let board=Array(9).fill(null),turn=ctx.first,over=false,line=null;
+  const players=ctx.players===1?2:ctx.players;
+  const size=players>=3?6:3,connect=players>=3?4:3;
+  const marks=['X','O','△','□'];
+  const lines=[];
+  for(let r=0;r<size;r++)for(let c=0;c<size;c++){
+    for(const [dr,dc] of [[0,1],[1,0],[1,1],[1,-1]]){
+      const er=r+(connect-1)*dr,ec=c+(connect-1)*dc;
+      if(er>=size||ec<0||ec>=size)continue;
+      const line=[];for(let k=0;k<connect;k++)line.push((r+k*dr)*size+c+k*dc);
+      lines.push(line);
+    }
+  }
+  let board=Array(size*size).fill(null),turn=ctx.first%players,over=false,line=null;
+  const wrap=el('div','ttt ttt-'+size);root.appendChild(wrap);
   const cells=[];
-  for(let i=0;i<9;i++){const b=el('button','ttt-cell');b.onclick=()=>click(i);wrap.appendChild(b);cells.push(b);}
+  for(let i=0;i<board.length;i++){
+    const b=el('button','ttt-cell');b.setAttribute('aria-label','Клетка '+(Math.floor(i/size)+1)+' '+(i%size+1));
+    b.onclick=()=>click(i);wrap.appendChild(b);cells.push(b);
+  }
   function draw(){cells.forEach((b,i)=>{
-    b.textContent=board[i]===null?'':(board[i]===0?'X':'O');
+    b.textContent=board[i]===null?'':marks[board[i]];
     b.className='ttt-cell'+(board[i]===null?'':' p'+board[i])+(line&&line.includes(i)?' win':'');
   });}
   function apply(i){
+    if(over||board[i]!==null||i<0||i>=board.length)return;
     board[i]=turn;
-    const w=L.find(l=>l.every(k=>board[k]===turn));
-    if(w){over=true;line=w;draw();ctx.end(turn);return;}
-    if(board.every(v=>v!==null)){over=true;draw();ctx.end(null);return;}
-    turn=1-turn;draw();ctx.turn(turn);
+    const w=lines.find(l=>l.every(k=>board[k]===turn));
+    if(w){over=true;line=w;draw();ctx.end(turn,players>=3?'Четыре символа подряд':'Три символа подряд');return;}
+    if(board.every(v=>v!==null)){over=true;draw();ctx.end(null,'Поле заполнено');return;}
+    turn=(turn+1)%players;draw();ctx.turn(turn);
   }
   function click(i){
     if(over||board[i]!==null||!ctx.canAct(turn))return;
     apply(i);ctx.send({m:i});
   }
-  ctx.onMsg=d=>{if(!over&&board[d.m]===null)apply(d.m);};
-  draw();ctx.turn(turn);
+  ctx.onMsg=d=>{if(!over&&Number.isInteger(d?.m))apply(d.m);};
+  draw();ctx.turn(turn,players>=3?'Поле 6×6 · четыре в ряд':'Классика 3×3');
 }};
-
 /* ====================== ЧЕТЫРЕ В РЯД ====================== */
 Games.c4={init(ctx){
   const R=6,C=7,root=ctx.root;root.innerHTML='';
@@ -828,6 +948,12 @@ if (typeof window.registerExtraGames === 'function') {
 } else {
   console.error('Не удалось загрузить библиотеку новых игр.');
 }
+/* Every game has a real 1–4 player mode. Classic two-side games use team seats above two players. */
+const individualGames=new Set(['ttt','durak','lastcard','poker','dungeon','kingdom']);
+LIST.forEach(game=>{
+  game.minPlayers=1;game.maxPlayers=4;
+  game.teamGame=!individualGames.has(game.id);
+});
 /* ====================== СТАРТ ====================== */
 renderConn();
 const q=new URLSearchParams(location.search).get('room');
