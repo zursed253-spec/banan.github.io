@@ -3,10 +3,14 @@ on:
   push:
     paths:
       - "server/**"
+      - "index.html"
+      - "games-extra.js"
       - ".github/workflows/multiplayer-test.yml"
   pull_request:
     paths:
       - "server/**"
+      - "index.html"
+      - "games-extra.js"
       - ".github/workflows/multiplayer-test.yml"
 jobs:
   test:
