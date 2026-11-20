@@ -115,7 +115,7 @@
       let b = 'rnbqkbnrpppppppp................................PPPPPPPPRNBQKBNR'.split('').map(p => p === '.' ? null : p);
       let rights = {K:true,Q:true,k:true,q:true};
       let ep = -1, turn = 0, last = [], selected = -1, ended = false, pending = null;
-      let halfmove = 0, fullmove = 1, flipped = ctx.me === 1;
+      let halfmove = 0, fullmove = 1, flipped = ctx.pov === 1;
       let moveHistory = [], snapshots = [];
       let positionCounts = Object.create(null);
 
@@ -888,8 +888,8 @@
       const moveKeys={w:'up',s:'down',a:'left',d:'right',ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right'};
       const aimKeys={i:'up',k:'down',j:'left',l:'right'};
       const isAligned=d=>d && (Math.abs(d.dr)+Math.abs(d.dc)===1);
-      const own=()=>ctx.local?localSelected:ctx.me;
-      const ensureActor=(actor,remote)=>actor>=0&&actor<=1&&(remote?!ctx.local&&actor===1-ctx.me:(ctx.local||actor===ctx.me));
+      const own=()=>ctx.local?localSelected:ctx.pov;
+      const ensureActor=(actor,remote)=>actor>=0&&actor<=1&&(remote?!ctx.local:(ctx.local||actor===ctx.pov));
       function notify(text){
         info.textContent=text;
         info.dataset.updated=String(Date.now());
