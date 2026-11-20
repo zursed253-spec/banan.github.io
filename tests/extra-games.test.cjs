@@ -197,8 +197,8 @@ function testChessFeatures(){
   castleMove(62,45);castleMove(12,28); // Nf3, ...e5
   castleMove(61,34);castleMove(1,18);  // Bc4, ...Nc6
   castleMove(60,62);                   // O-O
-  assert.equal(castleCells()[62].textContent,'♔','castling moves the king two squares');
-  assert.equal(castleCells()[61].textContent,'♖','castling also moves the rook');
+  assert.equal(castleCells()[62].children.find(x=>x.className.includes('x-chess-piece'))?.textContent,'♔','castling moves the king two squares');
+  assert.equal(castleCells()[61].children.find(x=>x.className.includes('x-chess-piece'))?.textContent,'♖','castling also moves the rook');
   assert.match(find(castle.root,'x-chess-move-row').at(-1).textContent,/O-O/,'castling is recorded in algebraic notation');
   castle.cleanup.forEach(fn=>fn());
   console.log('Chess history, threefold draw claim, undo and castling scenarios passed');
