@@ -79,3 +79,27 @@ test('poker multiplayer receiver validates the real actor seat and handles next-
   assert.match(cards,/const expected=d\.type==='next'\?0:state\.toAct/);
   assert.match(cards,/if\(d\._from!==expected\)return/);
 });
+
+
+test('local Battleship supports pass-and-play with separate hidden fleets for both sides',()=>{
+  assert.match(html,/function initLocalBattleship\(ctx\)/);
+  assert.match(html,/if\(ctx\.local&&ctx\.players>1\)\{initLocalBattleship\(ctx\);return;\}/);
+  assert.match(html,/Передайте устройство '\+ctx\.who\(1\)/);
+  assert.match(html,/incoming=\[Array\(100\)\.fill\(0\),Array\(100\)\.fill\(0\)\]/);
+  assert.match(html,/outgoing=\[Array\(100\)\.fill\(0\),Array\(100\)\.fill\(0\)\]/);
+});
+
+test('online Battleship synchronizes one captain fleet per team and serializes shots',()=>{
+  assert.match(html,/teamMode=ctx\.players>=3,teamCaptain=!teamMode\|\|ctx\.me===ctx\.team/);
+  assert.match(html,/ctx\.send\(teamMode\?\{k:'ready',ships:placed\.map\(cells=>cells\.slice\(\)\)\}:\{k:'ready'\}\)/);
+  assert.match(html,/validFleetLayout\(d\.ships\)/);
+  assert.match(html,/if\(teamMode&&d\._from%2===ctx\.team\)\{pending=true;drawFoe\(\);return;\}/);
+  assert.match(html,/ctx\.canRemoteAct\(1-turn,d\._from\)/);
+  assert.match(html,/if\(teamMode&&d\._from!==1-turn\)return/);
+});
+
+test('Reversi and local poker enforce active-seat input and hide inactive hands',()=>{
+  assert.match(html,/ctx\.canRemoteAct\(turn,d\?\._from\)\)apply\(d\.m\)/);
+  const cards=fs.readFileSync(require.resolve('../games-cards.js'),'utf8');
+  assert.match(cards,/ctx\.local&&ctx\.players>1&&p===state\.toAct/);
+});
