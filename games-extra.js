@@ -32,7 +32,8 @@
         return b;
       },
       allow(ctx, player, remote) {
-        return remote ? !ctx.local && player !== ctx.me : ctx.canAct(player);
+        // Server relays only other clients' moves; teammate moves are valid too.
+        return remote ? !ctx.local : ctx.canAct(player);
       },
       rng(seed) {
         let x = (seed | 0) ^ 0x6D2B79F5;
@@ -54,7 +55,7 @@
       },
       within(n, size) { return Number.isInteger(n) && n >= 0 && n < size; },
       register(id, name, desc, local, icon, init) {
-        LIST.push({ id, name, desc, local, online: true, icon });
+        LIST.push({ id, name, desc, local, online: true, minPlayers:1, maxPlayers:4, teamGame:true, icon });
         Games[id] = { init };
       },
     };
@@ -519,7 +520,7 @@
       function draw(){
         boardEl.textContent='';const possible=selected>=0?options(selected).map(m=>m.to):[];
         for(let visual=0;visual<64;visual++){
-          const i=ctx.me===1?63-visual:visual, r=i>>3,c=i&7,p=board[i];
+          const i=ctx.pov===1?63-visual:visual, r=i>>3,c=i&7,p=board[i];
           const cell=U.button('x-check-cell '+((r+c)%2?'deep':'light')+
             (selected===i?' selected':'')+(possible.includes(i)?' possible':'')+(last.includes(i)?' last':''),
             'Шашечная клетка '+(i+1),()=>click(i));
