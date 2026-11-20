@@ -423,7 +423,7 @@ function makeCtx(id,first,n,players){
   const teamGame=!!meta.teamGame;
   const count=Math.max(1,Math.min(4,Number(players)||Net.players||2));
   const ctx={
-    id,first:(local&&count===1?0:first),n,players:count,maxPlayers:Net.maxPlayers,
+    id,first:(local&&count===1?0:(teamGame?first%2:first)),n,players:count,maxPlayers:Net.maxPlayers,
     teamGame,team:local?0:(teamGame?Net.role%2:Net.role),
     local,me:local?null:Net.role,pov:local?0:(teamGame?Net.role%2:Net.role),
     root:$('#board'),cleanup:[],onMsg:null,botTurn:false,botTimer:null,
