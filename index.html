@@ -738,7 +738,7 @@ Games.rev={init(ctx){
     if(over||!ctx.canAct(turn))return;
     if(apply(i))ctx.send({m:i});
   }
-  ctx.onMsg=d=>{if(!over)apply(d.m);};
+  ctx.onMsg=d=>{if(!over&&ctx.canRemoteAct(turn,d?._from))apply(d.m);};
   draw();ctx.turn(turn,info());
 }};
 
@@ -807,7 +807,160 @@ Games.dots={init(ctx){
 }};
 
 /* ====================== МОРСКОЙ БОЙ ====================== */
+function initLocalBattleship(ctx){
+  const N=10,FLEET=[5,4,3,3,2],LET='АБВГДЕЖЗИК'.split('');
+  const fleets=[null,null];
+  const incoming=[Array(100).fill(0),Array(100).fill(0)];
+  const outgoing=[Array(100).fill(0),Array(100).fill(0)];
+  const sunk=[0,0];
+  let placed=FLEET.map(()=>null),grid=Array(100).fill(-1);
+  let phase='place',placing=0,turn=ctx.first%2,horiz=true,hover=-1;
+  const root=ctx.root;root.innerHTML='';
+  const wrap=el('div','bs local-bs');root.appendChild(wrap);
+  const sideA=el('div','bs-side'),sideB=el('div','bs-side');wrap.append(sideA,sideB);
+  const mkGrid=(onClick,onEnter)=>{
+    const g=el('div','bs-grid'),cells=[];
+    g.appendChild(el('div','lab'));
+    LET.forEach(letter=>g.appendChild(el('div','lab',letter)));
+    for(let r=0;r<N;r++){
+      g.appendChild(el('div','lab',String(r+1)));
+      for(let c=0;c<N;c++){
+        const i=r*N+c,b=el('div','bs-cell');
+        b.onclick=()=>onClick(i);
+        if(onEnter)b.onmouseenter=()=>onEnter(i);
+        g.appendChild(b);cells.push(b);
+      }
+    }
+    return {g,cells};
+  };
+  const mine=mkGrid(i=>clickMine(i),i=>{if(phase==='place'){hover=i;drawMine();}});
+  mine.g.onmouseleave=()=>{hover=-1;if(phase==='place')drawMine();};
+  const foe=mkGrid(i=>shoot(i));
+  const fleetEl=el('div','bs-fleet'),tools=el('div','bs-tools');
+  const mkBtn=(label,fn,cls)=>{const b=el('button','btn'+(cls?' '+cls:''),label);b.type='button';b.onclick=fn;return b;};
+  const rotate=mkBtn('',()=>{horiz=!horiz;rotLabel();drawMine();});
+  const random=mkBtn('Случайно',()=>{randomize();drawAll();});
+  const clear=mkBtn('Очистить',()=>{placed=FLEET.map(()=>null);rebuild();drawAll();});
+  const ready=mkBtn('Готов',readyFleet,'primary');
+  tools.append(rotate,random,clear,ready);
+  sideA.append(el('h3','','Поле '+ctx.who(placing)),fleetEl,mine.g,tools);
+  sideB.append(el('h3','','Поле соперника'),foe.g);
+  function rotLabel(){rotate.textContent='Поворот: '+(horiz?'горизонтально':'вертикально');}
+  function cellsFor(i,len,hor){
+    const x=i%N,y=Math.floor(i/N),out=[];
+    for(let k=0;k<len;k++){
+      const cx=hor?x+k:x,cy=hor?y:y+k;
+      if(cx>=N||cy>=N)return null;
+      out.push(cy*N+cx);
+    }
+    return out;
+  }
+  const canPlace=cs=>!!cs&&cs.every(c=>grid[c]===-1);
+  function rebuild(){
+    grid.fill(-1);
+    placed.forEach((cells,index)=>{if(cells)cells.forEach(cell=>grid[cell]=index);});
+  }
+  function randomize(){
+    placed=FLEET.map(()=>null);grid.fill(-1);
+    FLEET.forEach((length,index)=>{
+      let cells;
+      do{cells=cellsFor(Math.floor(Math.random()*100),length,Math.random()<.5);}
+      while(!canPlace(cells));
+      placed[index]=cells;cells.forEach(cell=>grid[cell]=index);
+    });
+  }
+  function clickMine(i){
+    if(phase!=='place')return;
+    if(grid[i]>=0){placed[grid[i]]=null;rebuild();}
+    else{
+      const index=placed.findIndex(ship=>!ship);
+      if(index<0)return;
+      const cells=cellsFor(i,FLEET[index],horiz);
+      if(!canPlace(cells))return;
+      placed[index]=cells;rebuild();
+    }
+    drawAll();
+  }
+  function alive(team){return FLEET.length-sunk[team];}
+  function info(){return ctx.who(0)+': '+alive(0)+' · '+ctx.who(1)+': '+alive(1);}
+  function drawMine(){
+    const fleet=phase==='place'?placed:(fleets[turn]||[]);
+    const hits=phase==='place'?null:incoming[turn];
+    let preview=[],previewOK=false;
+    if(phase==='place'&&hover>=0){
+      const index=placed.findIndex(ship=>!ship);
+      if(index>=0){const cells=cellsFor(hover,FLEET[index],horiz);if(cells){preview=cells;previewOK=canPlace(cells);}}
+    }
+    mine.cells.forEach((cell,i)=>{
+      let cls='bs-cell';
+      if(fleet.some(ship=>ship&&ship.includes(i)))cls+=' ship';
+      if(hits&&hits[i]===1)cls+=' miss';
+      if(hits&&hits[i]===2)cls+=' hit';
+      if(preview.includes(i))cls+=previewOK?' pv-ok':' pv-bad';
+      cell.className=cls;
+      cell.textContent=hits&&hits[i]===2?'✕':hits&&hits[i]===1?'•':'';
+    });
+  }
+  function drawFoe(){
+    const marks=phase==='battle'?outgoing[turn]:null;
+    foe.g.classList.toggle('active',phase==='battle');
+    foe.g.classList.toggle('idle',phase!=='battle');
+    foe.cells.forEach((cell,i)=>{
+      const value=marks?marks[i]:0;
+      cell.className='bs-cell'+(value===0?' unk':value===1?' miss':value===2?' hit':' sunk');
+      cell.textContent=value===1?'•':value>=2?'✕':'';
+    });
+  }
+  function drawFleet(){
+    fleetEl.innerHTML='';
+    if(phase!=='place')return;
+    FLEET.forEach((length,index)=>fleetEl.appendChild(el('span',placed[index]?'done':'','■'.repeat(length))));
+  }
+  function drawAll(){
+    sideA.querySelector('h3').textContent=phase==='place'?'Поле '+ctx.who(placing):'Поле '+ctx.who(turn);
+    sideB.querySelector('h3').textContent=phase==='place'?'Ожидание соперника':'Поле соперника';
+    drawMine();drawFoe();drawFleet();
+    tools.style.display=phase==='place'?'':'none';
+    ready.disabled=!placed.every(Boolean);
+  }
+  function readyFleet(){
+    if(phase!=='place'||!placed.every(Boolean))return;
+    fleets[placing]=placed.map(ship=>ship.slice());
+    if(placing===0){
+      placing=1;placed=FLEET.map(()=>null);grid.fill(-1);hover=-1;
+      drawAll();
+      ctx.setStatus('Флот '+ctx.who(0)+' готов. Передайте устройство '+ctx.who(1)+' для расстановки кораблей.');
+      return;
+    }
+    phase='battle';turn=ctx.first%2;drawAll();ctx.turn(turn,info());
+  }
+  function shoot(i){
+    if(phase!=='battle'||!Number.isInteger(i)||i<0||i>=100||outgoing[turn][i]!==0)return;
+    const target=1-turn;
+    const shipIndex=fleets[target].findIndex(ship=>ship.includes(i));
+    let result='miss';
+    if(shipIndex>=0){
+      result='hit';incoming[target][i]=2;outgoing[turn][i]=2;
+      const ship=fleets[target][shipIndex];
+      if(ship.every(cell=>incoming[target][cell]===2)){
+        result='sunk';ship.forEach(cell=>outgoing[turn][cell]=3);sunk[turn]++;
+      }
+    }else{
+      incoming[target][i]=1;outgoing[turn][i]=1;
+    }
+    if(sunk[turn]===FLEET.length){
+      phase='done';drawAll();ctx.end(turn,info());return;
+    }
+    if(result==='miss')turn=target;
+    drawAll();ctx.turn(turn,info());
+  }
+  rotate.textContent='Поворот: горизонтально';
+  drawAll();
+  ctx.setStatus('Флот '+ctx.who(0)+': расставьте корабли и нажмите «Готов».');
+}
+
 Games.bs={init(ctx){
+  if(ctx.local&&ctx.players>1){initLocalBattleship(ctx);return;}
   const N=10,FLEET=[5,4,3,3,2],LET='АБВГДЕЖЗИК'.split('');
   let placed=FLEET.map(()=>null),grid=Array(100).fill(-1),inc=Array(100).fill(0),foe=Array(100).fill(0);
   const solo=ctx.local&&ctx.players===1,enemyGrid=Array(100).fill(-1),enemyShips=FLEET.map(()=>null);
