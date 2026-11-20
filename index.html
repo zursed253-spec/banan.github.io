@@ -422,6 +422,8 @@ function makeCtx(id,first,n,players){
   const meta=LIST.find(g=>g.id===id)||{};
   const teamGame=!!meta.teamGame;
   const count=Math.max(1,Math.min(4,Number(players)||Net.players||2));
+  const botSeatGame=count===1&&['durak','lastcard','poker','kingdom'].includes(id);
+  const scoreSize=teamGame?2:(botSeatGame?4:Math.max(count,id==='ttt'&&count===1?2:count));
   const ctx={
     id,first:(local&&count===1?0:(teamGame?first%2:first)),n,players:count,maxPlayers:Net.maxPlayers,
     teamGame,team:local?0:(teamGame?Net.role%2:Net.role),
@@ -433,7 +435,8 @@ function makeCtx(id,first,n,players){
       return teamGame&&count>=3 ? (this.me%2===t) : t===this.me;
     },
     who(p){
-      if(count===1&&p===1&&(teamGame||id==='ttt'))return 'Компьютер';
+      if(count===1&&teamGame&&p===1)return 'Компьютер';
+      if(botSeatGame)return p===0?'Вы':'Бот '+p;
       if(teamGame&&count>=3)return 'Команда '+(p+1);
       return local?'Игрок '+(p+1):(p===this.me?'Вы':'Игрок '+(p+1));
     },
@@ -557,7 +560,7 @@ function makeCtx(id,first,n,players){
       }
     },
     end(w,extra){
-      const size=teamGame?2:Math.max(count,id==='ttt'&&count===1?2:count);
+      const size=scoreSize;
       const sc=scores[id]||(scores[id]=Array.from({length:size},()=>0));
       while(sc.length<size)sc.push(0);
       if(w!==null&&w!==undefined&&Number.isInteger(w)&&sc[w]!==undefined)sc[w]++;
@@ -567,7 +570,7 @@ function makeCtx(id,first,n,players){
       this.renderScore();
     },
     renderScore(){
-      const size=teamGame?2:Math.max(count,id==='ttt'&&count===1?2:count);
+      const size=scoreSize;
       const sc=scores[id]||(scores[id]=Array.from({length:size},()=>0));
       while(sc.length<size)sc.push(0);
       const s=$('#score');s.innerHTML='';
