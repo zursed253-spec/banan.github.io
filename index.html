@@ -429,10 +429,7 @@ function makeCtx(id,first,n,players){
     root:$('#board'),cleanup:[],onMsg:null,botTurn:false,botTimer:null,botCleanupAdded:false,
     canAct(t){
       if(this.botTurn)return true;
-      if(local){
-        if(count===1&&(teamGame||id==='ttt'))return t===0;
-        return true;
-      }
+      if(local)return true;
       return teamGame&&count>=3 ? (this.me%2===t) : t===this.me;
     },
     who(p){
@@ -450,7 +447,12 @@ function makeCtx(id,first,n,players){
     turn(p,extra){
       const t=local?'Ход: '+this.who(p):(this.canAct(p)?'Ваш ход':'Ход '+this.who(p));
       this.setStatus(t,p,extra);
-      if(local&&count===1&&(teamGame||id==='ttt')&&p===1)this.scheduleBot();
+      if(local&&count===1&&(teamGame||id==='ttt')){
+        const waiting=p===1;
+        this.root.inert=waiting;
+        this.root.style.pointerEvents=waiting?'none':'';
+        if(waiting)this.scheduleBot();
+      }
     },
     scheduleBot(){
       if(this.botTimer!==null)clearTimeout(this.botTimer);
@@ -561,6 +563,7 @@ function makeCtx(id,first,n,players){
       if(w!==null&&w!==undefined&&Number.isInteger(w)&&sc[w]!==undefined)sc[w]++;
       const t=w===null?'Ничья':(count===1&&w===1&&(teamGame||id==='ttt')?'Победил: Компьютер':(local?'Победил: '+this.who(w):(w===this.pov?'Вы победили':'Победила '+this.who(w))));
       this.setStatus(t,w===null?null:w,extra,true);
+      this.root.inert=false;this.root.style.pointerEvents='';
       this.renderScore();
     },
     renderScore(){
