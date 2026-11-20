@@ -234,7 +234,8 @@ function renderCards(){
     const d=el('div');
     d.appendChild(el('h3','',g.name));d.appendChild(el('p','',g.desc));
     if(g.id==='vanish')d.appendChild(el('span','tag','НОВИНКА · 36 мемов'));
-    d.appendChild(el('span','tag',min===1?'1–4 игрока · соло / компания':(min===max?min+' игрока':min+'–'+max+' игрока')));
+    const format=g.id==='ttt'?'1–4 игрока · 3–4: поле 6×6':g.teamGame?'1 игрок против ИИ · 2–4 игрока · команды':'1–4 игрока · боты / компания';
+    d.appendChild(el('span','tag',format));
     b.appendChild(d);
     b.onclick=()=>{
       if(!ready){toast('Для этой игры нужно '+min+'–'+max+' участников');return;}
