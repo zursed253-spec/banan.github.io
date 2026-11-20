@@ -49,33 +49,33 @@ test('every visible game is registered and exposes one-to-four participant limit
   const cards=fs.readFileSync(require.resolve('../games-cards.js'),'utf8');
   const extraIds=['chess','checkers','gomoku','hex','quoridor','mines','memory','vanish','blockade'];
   const cardIds=['durak','lastcard','poker','dungeon','kingdom'];
-  for(const id of extraIds)assert.match(extra,new RegExp("U\\\\.register\\\\('"+id+"'"),id+' is registered');
+  for(const id of extraIds)assert.ok(extra.includes("U.register('"+id+"'"),id+' is registered');
   for(const id of cardIds)assert.ok(cards.includes("'"+id+"'"),id+' is registered');
-  assert.match(html,/game\\.minPlayers=1;game\\.maxPlayers=4/);
-  assert.match(html,/const individualGames=new Set\\(\\['ttt','durak','lastcard','poker','dungeon','kingdom'\\]\\)/);
-  assert.match(html,/sendSignal\\(\\{t:'host',code:Net\\.code,maxPlayers:Net\\.maxPlayers\\}\\)/,'room collision retry preserves selected capacity');
+  assert.match(html,/game\.minPlayers=1;game\.maxPlayers=4/);
+  assert.match(html,/const individualGames=new Set\(\['ttt','durak','lastcard','poker','dungeon','kingdom'\]\)/);
+  assert.match(html,/sendSignal\(\{t:'host',code:Net\.code,maxPlayers:Net\.maxPlayers\}\)/,'room collision retry preserves selected capacity');
 });
 
 test('team turn authorization validates the sending seat for three and four players',()=>{
-  assert.match(html,/canRemoteAct\\(t,from\\)/);
-  assert.match(html,/teamGame&&count>=3 \\? from%2===t : from===t/);
-  assert.match(html,/ctx\\.canRemoteAct\\(turn,d\\?\\._from\\)/);
+  assert.match(html,/canRemoteAct\(t,from\)/);
+  assert.match(html,/teamGame&&count>=3 \? from%2===t : from===t/);
+  assert.match(html,/ctx\.canRemoteAct\(turn,d\?\._from\)/);
   const extra=fs.readFileSync(require.resolve('../games-extra.js'),'utf8');
   for(const id of ['checkers','gomoku','hex','quoridor','mines','memory','blockade']){
     assert.ok(extra.includes('ctx.canRemoteAct(turn,d._from)'),id+' rejects messages from the wrong team');
   }
-  assert.match(extra,/ctx\\.canRemoteAct\\(1-turn,d\\._from\\)/,'the guess action in What disappeared? belongs to the other team');
+  assert.match(extra,/ctx\.canRemoteAct\(1-turn,d\._from\)/,'the guess action in What disappeared? belongs to the other team');
 });
 
 test('cooperative dungeon reports a shared victory or defeat instead of a false draw',()=>{
   const cards=fs.readFileSync(require.resolve('../games-cards.js'),'utf8');
-  assert.match(cards,/ctx\\.end\\('all','Отряд прошёл все 12 этажей'\\)/);
-  assert.match(cards,/ctx\\.end\\('loss','Отряд пал на этаже '\\+state\\.floor\\)/);
-  assert.match(html,/if\\(w==='all'\\)for\\(let i=0;i<size;i\\+\\+\\)sc\\[i\\]\\+\\+/);
+  assert.match(cards,/ctx\.end\('all','Отряд прошёл все 12 этажей'\)/);
+  assert.match(cards,/ctx\.end\('loss','Отряд пал на этаже '\+state\.floor\)/);
+  assert.match(html,/if\(w==='all'\)for\(let i=0;i<size;i\+\+\)sc\[i\]\+\+/);
 });
 
 test('poker multiplayer receiver validates the real actor seat and handles next-hand host action',()=>{
   const cards=fs.readFileSync(require.resolve('../games-cards.js'),'utf8');
-  assert.match(cards,/const expected=d\\.type==='next'\\?0:state\\.toAct/);
-  assert.match(cards,/if\\(d\\._from!==expected\\)return/);
+  assert.match(cards,/const expected=d\.type==='next'\?0:state\.toAct/);
+  assert.match(cards,/if\(d\._from!==expected\)return/);
 });
