@@ -192,7 +192,7 @@ test('multiway poker accepts the current actor action and advances on every clie
 test('all card games support local pass-and-play with one to four participants',()=>{
   for(const game of LIST){
     for(const players of [1,2,3,4]){
-      const instance=makeContext(game.id,players,true,0);
+      const instance=makeContext(game.id,players,true,null);
       assert.ok(instance.root.children.length>0,game.id+' local '+players+' players');
       instance.cleanup.forEach(fn=>fn());
     }
@@ -200,7 +200,7 @@ test('all card games support local pass-and-play with one to four participants',
 });
 
 test('local poker exposes only the active players private hand',()=>{
-  const game=makeContext('poker',3,true,0);
+  const game=makeContext('poker',3,true,null);
   assert.equal(find(game.root,'cg-hole').length,1,'only the current player sees hole cards');
   const action=find(game.root,'cg-action').find(button=>button.textContent==='Чек / колл');
   assert.ok(action);
