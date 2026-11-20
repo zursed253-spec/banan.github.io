@@ -49,7 +49,7 @@ function makeContext(id,players=2,local=false,me=0){
     canAct(player){return local||player===me;},
     who(player){return local?'Игрок '+(player+1):(player===me?'Вы':'Игрок '+(player+1));},
     send(message){this.sent.push(message);},
-    turn(){},
+    turn(player){this.activeTurn=player;},
     setStatus(text,player,extra,done){this.status={text,player,extra,done};},
     end(winner,extra){this.ended={winner,extra};},
     renderScore(){}
@@ -166,4 +166,45 @@ test('solo card-game seat allocator creates three bot opponents',()=>{
     assert.ok(ctx.root.children.length>0,id+' starts a solo match against bots');
     ctx.cleanup.forEach(fn=>fn());
   }
+});
+
+
+test('multiway poker accepts the current actor action and advances on every client',()=>{
+  for(const players of [2,3,4]){
+    const actor=players===4?3:0;
+    const receiver=(actor+1)%players;
+    const active=makeContext('poker',players,false,actor);
+    const peer=makeContext('poker',players,false,receiver);
+    assert.equal(active.activeTurn,actor,'the selected seat is first to act');
+    const call=find(active.root,'cg-action').find(button=>button.textContent==='Чек / колл');
+    assert.ok(call,'the first actor can call the big blind');
+    call.click();
+    const move=active.sent.find(message=>message.g==='poker');
+    assert.ok(move,'the poker action is broadcast');
+    peer.onMsg({...move,_from:actor});
+    assert.equal(peer.activeTurn,active.activeTurn,'the receiving client advances to the same next actor');
+    assert.equal(peer.sent.length,0,'remote poker actions are not echoed');
+    active.cleanup.forEach(fn=>fn());peer.cleanup.forEach(fn=>fn());
+  }
+});
+
+
+test('all card games support local pass-and-play with one to four participants',()=>{
+  for(const game of LIST){
+    for(const players of [1,2,3,4]){
+      const instance=makeContext(game.id,players,true,null);
+      assert.ok(instance.root.children.length>0,game.id+' local '+players+' players');
+      instance.cleanup.forEach(fn=>fn());
+    }
+  }
+});
+
+test('local poker exposes only the active players private hand',()=>{
+  const game=makeContext('poker',3,true,null);
+  assert.equal(find(game.root,'cg-hole').length,1,'only the current player sees hole cards');
+  const action=find(game.root,'cg-action').find(button=>button.textContent==='Чек / колл');
+  assert.ok(action);
+  action.click();
+  assert.equal(find(game.root,'cg-hole').length,1,'the next active player sees only their own hand');
+  game.cleanup.forEach(fn=>fn());
 });

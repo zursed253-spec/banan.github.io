@@ -112,3 +112,44 @@ test('four-player rooms assign stable seats, broadcast to everyone and promote a
 
   for(const s of players)if(s.readyState===WebSocket.OPEN)s.close();
 });
+
+
+test('active game rooms reject late joins and accept new players after returning to menu',async t=>{
+  const {server,wss,rooms}=createApp();
+  await new Promise(ok=>server.listen(0,'127.0.0.1',ok));
+  t.after(async()=>{
+    for(const s of wss.clients)s.terminate();
+    await new Promise(ok=>server.close(ok));
+  });
+  const url='ws://127.0.0.1:'+server.address().port+'/ws';
+  const host=await connect(url),guest=await connect(url),late=await connect(url);
+  const hosted=waitFor(host,m=>m.t==='hosted');
+  host.send(JSON.stringify({t:'host',code:'LMNPQ',maxPlayers:4}));
+  assert.equal((await hosted).maxPlayers,4);
+
+  const initialReady=[waitFor(host,m=>m.t==='ready'&&m.players===2),waitFor(guest,m=>m.t==='ready'&&m.players===2)];
+  guest.send(JSON.stringify({t:'join',code:'LMNPQ'}));
+  await Promise.all(initialReady);
+
+  const started=waitFor(guest,m=>m.t==='data'&&m.payload?.t==='start');
+  host.send(JSON.stringify({t:'data',payload:{t:'start',game:'gomoku',players:2}}));
+  await started;
+  assert.equal(rooms.get('LMNPQ').gameStarted,true);
+
+  const rejected=waitFor(late,m=>m.t==='error');
+  late.send(JSON.stringify({t:'join',code:'LMNPQ'}));
+  assert.equal((await rejected).code,'game_in_progress');
+  assert.equal(rooms.get('LMNPQ').players.length,2);
+
+  const returned=waitFor(guest,m=>m.t==='data'&&m.payload?.t==='menu');
+  host.send(JSON.stringify({t:'data',payload:{t:'menu'}}));
+  await returned;
+  assert.equal(rooms.get('LMNPQ').gameStarted,false);
+
+  const ready=[waitFor(host,m=>m.t==='ready'&&m.players===3),waitFor(guest,m=>m.t==='ready'&&m.players===3),waitFor(late,m=>m.t==='ready'&&m.players===3)];
+  late.send(JSON.stringify({t:'join',code:'LMNPQ'}));
+  const messages=await Promise.all(ready);
+  assert.deepEqual(messages.map(m=>m.role).sort(),[0,1,2]);
+  assert.equal(rooms.get('LMNPQ').players.length,3);
+  for(const socket of [host,guest,late])if(socket.readyState===WebSocket.OPEN)socket.close();
+});

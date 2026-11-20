@@ -555,7 +555,7 @@
       for(let p=0;p<N;p++){
         const seat=node('div','cg-poker-seat'+(state.stage!=='between'&&p===state.toAct?' active':'')+(state.folded[p]?' folded':''));
         seat.append(node('b','',playerName(ctx,bots,p)+(p===state.dealer?' · D':'')),node('span','',state.chips[p]+' фишек'),node('small','',state.folded[p]?'Пас':state.bets[p]?'Ставка '+state.bets[p]:''));
-        if(p===ctx.me||(ctx.players===1&&p===0)||ctx.local&&ctx.players>1&&state.stage!=='between'){
+        if(p===ctx.me||(ctx.players===1&&p===0)||ctx.local&&ctx.players>1&&p===state.toAct){
           const own=node('div','cg-hole');
           state.hands[p].forEach(c=>own.appendChild(playingCard(c,null,true,false)));
           seat.appendChild(own);
@@ -581,7 +581,12 @@
       ctx.turn(state.toAct,state.stage==='between'?'Можно начать следующую раздачу':'Выберите действие');
     }
     startHand(true);
-    ctx.onMsg=d=>{if(d&&d.g==='poker'&&d.seq===seq+1&&d._from===state.turn){if(apply(d)){seq=d.seq;render();scheduleBot();}}};
+    ctx.onMsg=d=>{
+      if(!d||d.g!=='poker'||d.seq!==seq+1)return;
+      const expected=d.type==='next'?0:state.toAct;
+      if(d._from!==expected)return;
+      if(apply(d)){seq=d.seq;render();scheduleBot();}
+    };
   }
 
   const DUNGEON_CARDS=[
@@ -606,8 +611,8 @@
     function log(text){state.log.unshift(text);state.log=state.log.slice(0,5);}
     function finish(win){
       if(state.ended)return;state.ended=true;render();
-      if(win)ctx.end(0,'Отряд прошёл все 12 этажей');
-      else ctx.setStatus('Отряд пал на этаже '+state.floor,null,'Попробуйте другую колоду',true);
+      if(win)ctx.end('all','Отряд прошёл все 12 этажей');
+      else ctx.end('loss','Отряд пал на этаже '+state.floor);
     }
     function clearFloor(){
       state.floor++;
