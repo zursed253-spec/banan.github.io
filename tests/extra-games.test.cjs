@@ -178,7 +178,7 @@ function testChessFeatures(){
   const claim=find(local.root,'x-chess-claim')[0];
   assert.ok(claim&&!claim.disabled,'threefold repetition can be claimed');
   claim.click();
-  assert.match(local.log.at(-1)[1],/Ничья/,'threefold claim ends the game as a draw');
+  assert.match(local.log.at(-1)[2],/Ничья/,'threefold claim ends the game as a draw');
   local.cleanup.forEach(fn=>fn());
 
   const undoGame=ctx('chess',92,0,null,true);
