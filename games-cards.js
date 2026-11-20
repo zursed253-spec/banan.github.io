@@ -581,7 +581,12 @@
       ctx.turn(state.toAct,state.stage==='between'?'Можно начать следующую раздачу':'Выберите действие');
     }
     startHand(true);
-    ctx.onMsg=d=>{if(d&&d.g==='poker'&&d.seq===seq+1&&d._from===state.turn){if(apply(d)){seq=d.seq;render();scheduleBot();}}};
+    ctx.onMsg=d=>{
+      if(!d||d.g!=='poker'||d.seq!==seq+1)return;
+      const expected=d.type==='next'?0:state.toAct;
+      if(d._from!==expected)return;
+      if(apply(d)){seq=d.seq;render();scheduleBot();}
+    };
   }
 
   const DUNGEON_CARDS=[
@@ -606,8 +611,8 @@
     function log(text){state.log.unshift(text);state.log=state.log.slice(0,5);}
     function finish(win){
       if(state.ended)return;state.ended=true;render();
-      if(win)ctx.end(0,'Отряд прошёл все 12 этажей');
-      else ctx.setStatus('Отряд пал на этаже '+state.floor,null,'Попробуйте другую колоду',true);
+      if(win)ctx.end('all','Отряд прошёл все 12 этажей');
+      else ctx.end('loss','Отряд пал на этаже '+state.floor);
     }
     function clearFloor(){
       state.floor++;
