@@ -426,7 +426,7 @@ function makeCtx(id,first,n,players){
     id,first:(local&&count===1?0:(teamGame?first%2:first)),n,players:count,maxPlayers:Net.maxPlayers,
     teamGame,team:local?0:(teamGame?Net.role%2:Net.role),
     local,me:local?null:Net.role,pov:local?0:(teamGame?Net.role%2:Net.role),
-    root:$('#board'),cleanup:[],onMsg:null,botTurn:false,botTimer:null,
+    root:$('#board'),cleanup:[],onMsg:null,botTurn:false,botTimer:null,botCleanupAdded:false,
     canAct(t){
       if(this.botTurn)return true;
       if(local){
@@ -454,6 +454,7 @@ function makeCtx(id,first,n,players){
     },
     scheduleBot(){
       if(this.botTimer!==null)clearTimeout(this.botTimer);
+      if(!this.botCleanupAdded){this.botCleanupAdded=true;this.cleanup.push(()=>{if(this.botTimer!==null)clearTimeout(this.botTimer);this.botTimer=null;});}
       const run=()=>{
         this.botTimer=null;
         if(cur?.ctx!==this||!this.root||!this.root.isConnected&&this.root.parentNode===null)return;
@@ -462,7 +463,6 @@ function makeCtx(id,first,n,players){
         this.botTurn=false;
       };
       this.botTimer=setTimeout(run,420);
-      this.cleanup.push(()=>{if(this.botTimer!==null)clearTimeout(this.botTimer);this.botTimer=null;});
     },
     botMove(){
       const all=selector=>Array.from(this.root.querySelectorAll(selector));
@@ -470,9 +470,25 @@ function makeCtx(id,first,n,players){
       const cells=selector=>all(selector);
       switch(id){
         case 'ttt': {
-          const a=cells('.ttt-cell');
-          const empty=a.filter(x=>!x.textContent.trim());
-          return click(empty);
+          const a=cells('.ttt-cell'),empty=a.filter(x=>!x.textContent.trim());
+          if(!empty.length)return false;
+          const size=Math.sqrt(a.length),need=size===3?3:4,me=1,opp=0;
+          const lines=[];
+          for(let r=0;r<size;r++)for(let c=0;c<size;c++)for(const [dr,dc] of [[0,1],[1,0],[1,1],[1,-1]]){
+            const er=r+(need-1)*dr,ec=c+(need-1)*dc;
+            if(er>=size||ec<0||ec>=size)continue;
+            lines.push(Array.from({length:need},(_,k)=>a[(r+k*dr)*size+c+k*dc]));
+          }
+          const mark=x=>x.className.includes('p1')?me:x.className.includes('p0')?opp:-1;
+          for(const target of [me,opp]){
+            for(const line of lines){
+              const occupied=line.filter(x=>mark(x)===target).length;
+              const free=line.filter(x=>mark(x)<0);
+              if(occupied===need-1&&free.length===1)return click([free[0]]);
+            }
+          }
+          const centre=a.filter(x=>{const idx=a.indexOf(x),r=Math.floor(idx/size),c=idx%size;return Math.abs(r-(size-1)/2)<=1&&Math.abs(c-(size-1)/2)<=1;});
+          return click(centre.filter(x=>!x.textContent.trim()).length?centre.filter(x=>!x.textContent.trim()):empty);
         }
         case 'c4': {
           const a=cells('.c4-cell');
@@ -952,7 +968,7 @@ Games.bs={init(ctx){
     if(d.r==='miss')foe[d.i]=1;
     else if(d.r==='hit')foe[d.i]=2;
     else{d.cells.forEach(c=>foe[c]=3);foeSunk++;}
-    if(d.over){phase='done';drawAll();ctx.end(ctx.me,info());return;}
+    if(d.over){phase='done';drawAll();ctx.end(ctx.team,info());return;}
     turn=d.r==='miss'?1-ctx.team:ctx.team;
     drawAll();ctx.turn(turn,info());
   }
