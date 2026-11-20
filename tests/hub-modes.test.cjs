@@ -103,3 +103,45 @@ test('Reversi and local poker enforce active-seat input and hide inactive hands'
   const cards=fs.readFileSync(require.resolve('../games-cards.js'),'utf8');
   assert.match(cards,/ctx\.local&&ctx\.players>1&&p===state\.toAct/);
 });
+
+
+test('local Battleship can place two fleets and finish a pass-and-play match for two to four people',()=>{
+  const start=html.indexOf('function initLocalBattleship(ctx){');
+  assert.ok(start>=0);
+  const brace=html.indexOf('{',start);
+  let depth=0,end=-1;
+  for(let i=brace;i<html.length;i++){
+    if(html[i]==='{')depth++;
+    else if(html[i]==='}'&&--depth===0){end=i+1;break;}
+  }
+  assert.ok(end>start);
+  class FakeElement{
+    constructor(tag,cls,text){this.tagName=tag;this.className=cls||'';this.textContent=text||'';this.children=[];this.style={};this.disabled=false;this.listeners={};this._html='';this.classList={toggle:(name,on)=>{const parts=this.className.split(/\s+/).filter(Boolean).filter(x=>x!==name);if(on)parts.push(name);this.className=parts.join(' ');}};}
+    append(...nodes){this.children.push(...nodes);}
+    appendChild(node){this.children.push(node);return node;}
+    querySelector(selector){return this.children.find(node=>selector==='h3'?node.tagName==='h3':false)||null;}
+    set innerHTML(value){this._html=value;if(value==='')this.children=[];}
+    get innerHTML(){return this._html;}
+    click(){if(!this.disabled)this.onclick?.();}
+  }
+  const make=(tag,cls,text)=>new FakeElement(tag,cls,text);
+  const init=new Function('el','return ('+html.slice(start,end)+')')(make);
+  function descendants(node,cls,out=[]){if(node.className.split(/\s+/).includes(cls))out.push(node);for(const child of node.children)descendants(child,cls,out);return out;}
+  for(const players of [2,3,4]){
+    const ctx={root:make('div'),local:true,players,first:1,activeTurn:null,ended:null,
+      who:p=>players>=3?'Команда '+(p+1):'Игрок '+(p+1),
+      setStatus(){},turn(p){this.activeTurn=p;},end(w,info){this.ended={winner:w,info};}};
+    init(ctx);
+    const buttons=descendants(ctx.root,'bs-tools')[0].children;
+    const random=buttons[1],ready=buttons[3];
+    random.click();ready.click();
+    random.click();ready.click();
+    assert.equal(ctx.activeTurn,1,'battle begins after both teams place their fleets');
+    const foeGrid=descendants(ctx.root,'bs-grid')[1];
+    const cells=foeGrid.children.filter(node=>node.className.split(/\s+/).includes('bs-cell'));
+    assert.equal(cells.length,100);
+    for(let pass=0;pass<5&&!ctx.ended;pass++)for(const cell of cells)cell.click();
+    assert.ok(ctx.ended,'the local match can reach a valid win condition');
+    assert.ok([0,1].includes(ctx.ended.winner));
+  }
+});
