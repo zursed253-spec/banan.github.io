@@ -560,9 +560,15 @@ function makeCtx(id,first,n,players){
           return click(options);
         }
         case 'blockade': {
-          const pawns=cells('.x-block-cell.pawn.p1');
-          if(pawns.length)pawns[Math.floor(Math.random()*pawns.length)].click();
-          return click(cells('.x-block-cell.hint'));
+          const labels=cells('.x-block-cell.pawn.p1').map(x=>x.textContent.trim()).sort(()=>Math.random()-.5);
+          for(const label of labels){
+            const pawn=cells('.x-block-cell.pawn.p1').find(x=>x.textContent.trim()===label);
+            if(!pawn)continue;
+            pawn.click();
+            const hints=cells('.x-block-cell.hint');
+            if(hints.length)return click(hints);
+          }
+          return false;
         }
         default: return false;
       }
