@@ -575,3 +575,25 @@ input[type=text], #iCode { width: 180px; text-transform: uppercase; letter-spaci
 :root[data-theme="dark"] .cg-poker-seat span,
 :root[data-theme="dark"] .cg-poker-seat small,
 :root[data-theme="dark"] .cg-hero small { color: #bac9ce; }
+
+
+/* Multi-player modes for the classic board games. */
+.ttt.ttt-6 {
+  width: min(96vw, 540px);
+  grid-template-columns: repeat(6,minmax(0,1fr));
+  gap: clamp(3px,1vw,7px);
+}
+.ttt-6 .ttt-cell {
+  min-width: 0;
+  aspect-ratio: 1;
+  border-radius: clamp(4px,1.2vw,10px);
+  font-size: clamp(20px,6.8vw,48px);
+  font-weight: 750;
+  line-height: 1;
+}
+.ttt-6 .ttt-cell.p0 { color:#315f91; }
+.ttt-6 .ttt-cell.p1 { color:#b34d46; }
+.ttt-6 .ttt-cell.p2 { color:#3f875e; }
+.ttt-6 .ttt-cell.p3 { color:#a56cbd; }
+:root[data-theme="dark"] .ttt-6 .ttt-cell { background:#263944; border-color:#425861; }
+:root[data-theme="dark"] .ttt-6 .ttt-cell.win { background:#31564e; border-color:#82b7a7; }

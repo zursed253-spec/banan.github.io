@@ -210,9 +210,9 @@ function toast(t){const d=el('div','toast',t);document.body.appendChild(d);setTi
 
 /* ====================== ХАБ ====================== */
 const LIST=[
- {id:'ttt',name:'Крестики-нолики',desc:'Классика на поле 3×3.',online:true,local:true,
+ {id:'ttt',name:'Крестики-нолики',desc:'2 игрока — 3×3; 3–4 игрока — поле 6×6 с разными символами.',online:true,local:true,teamGame:false,
   icon:'<path d="M18 8v32M30 8v32M8 18h32M8 30h32"/><path d="M11 11l5 5M16 11l-5 5"/><circle cx="24" cy="24" r="3"/>'},
- {id:'bs',name:'Морской бой',desc:'Поле 10×10, флот из пяти кораблей. Попал — стреляешь снова.',online:true,local:false,
+ {id:'bs',name:'Морской бой',desc:'Поле 10×10, флот из пяти кораблей. Соло против компьютера или командами до четырёх игроков.',online:true,local:true,
   icon:'<rect x="8" y="8" width="32" height="32"/><path d="M8 16h32M8 24h32M8 32h32M16 8v32M24 8v32M32 8v32"/><rect x="16" y="24" width="16" height="8" fill="currentColor"/>'},
  {id:'c4',name:'Четыре в ряд',desc:'Роняйте фишки в колонки и соберите четыре подряд.',online:true,local:true,
   icon:'<rect x="6" y="8" width="36" height="32" rx="2"/><circle cx="14" cy="18" r="3"/><circle cx="24" cy="18" r="3"/><circle cx="34" cy="18" r="3"/><circle cx="14" cy="30" r="3" fill="currentColor"/><circle cx="24" cy="30" r="3" fill="currentColor"/><circle cx="34" cy="30" r="3"/>'},
@@ -234,7 +234,8 @@ function renderCards(){
     const d=el('div');
     d.appendChild(el('h3','',g.name));d.appendChild(el('p','',g.desc));
     if(g.id==='vanish')d.appendChild(el('span','tag','НОВИНКА · 36 мемов'));
-    d.appendChild(el('span','tag',min===1?'1–4 игрока · соло / компания':(min===max?min+' игрока':min+'–'+max+' игрока')));
+    const format=g.id==='ttt'?'1–4 игрока · 3–4: поле 6×6':g.teamGame?'1 игрок против ИИ · 2–4 игрока · команды':'1–4 игрока · боты / компания';
+    d.appendChild(el('span','tag',format));
     b.appendChild(d);
     b.onclick=()=>{
       if(!ready){toast('Для этой игры нужно '+min+'–'+max+' участников');return;}
@@ -419,11 +420,28 @@ function requestStart(id){
 /* ====================== ЗАПУСК ИГРЫ ====================== */
 function makeCtx(id,first,n,players){
   const local=Net.state==='local';
+  const meta=LIST.find(g=>g.id===id)||{};
+  const teamGame=!!meta.teamGame;
+  const count=Math.max(1,Math.min(4,Number(players)||Net.players||2));
+  const botSeatGame=count===1&&['durak','lastcard','poker','kingdom'].includes(id);
+  const scoreSize=teamGame?2:(botSeatGame?4:Math.max(count,id==='ttt'&&count===1?2:count));
   const ctx={
-    id,first,n,players:Math.max(1,Number(players)||Net.players||2),maxPlayers:Net.maxPlayers,local,me:local?null:Net.role,pov:local?0:Net.role,root:$('#board'),cleanup:[],onMsg:null,
-    canAct(t){return local||t===this.me;},
-    who(p){return local?'Игрок '+(p+1):(p===this.me?'Вы':'Игрок '+(p+1));},
-    send(d){if(!local&&Net.conn&&Net.conn.open)Net.conn.send({t:'g',n,d});},
+    id,first:(local&&count===1?0:(teamGame?first%2:first)),n,players:count,maxPlayers:Net.maxPlayers,
+    teamGame,team:local?0:(teamGame?Net.role%2:Net.role),
+    local,me:local?null:Net.role,pov:local?0:(teamGame?Net.role%2:Net.role),
+    root:$('#board'),cleanup:[],onMsg:null,botTurn:false,botTimer:null,botCleanupAdded:false,
+    canAct(t){
+      if(this.botTurn)return true;
+      if(local)return true;
+      return teamGame&&count>=3 ? (this.me%2===t) : t===this.me;
+    },
+    who(p){
+      if(count===1&&(teamGame||id==='ttt'))return p===0?'Вы':'Компьютер';
+      if(botSeatGame)return p===0?'Вы':'Бот '+p;
+      if(teamGame&&count>=3)return 'Команда '+(p+1);
+      return local?'Игрок '+(p+1):(p===this.me?'Вы':'Игрок '+(p+1));
+    },
+    send(d){if(!this.botTurn&&!local&&Net.conn&&Net.conn.open)Net.conn.send({t:'g',n,d});},
     setStatus(text,p,extra,done){
       const s=$('#status');s.innerHTML='';s.className='status'+(done?' done':'');
       if(p!=null)s.appendChild(chip(p));
@@ -431,22 +449,133 @@ function makeCtx(id,first,n,players){
       if(extra)s.appendChild(el('span','st-extra',extra));
     },
     turn(p,extra){
-      const t=local?'Ход: '+this.who(p):(p===this.me?'Ваш ход':'Ход соперника');
+      const t=local?'Ход: '+this.who(p):(this.canAct(p)?'Ваш ход':'Ход '+this.who(p));
       this.setStatus(t,p,extra);
+      if(local&&count===1&&(teamGame||id==='ttt')){
+        const waiting=p===1;
+        this.root.inert=waiting;
+        this.root.style.pointerEvents=waiting?'none':'';
+        if(waiting)this.scheduleBot();
+      }
+    },
+    scheduleBot(){
+      if(this.botTimer!==null)clearTimeout(this.botTimer);
+      if(!this.botCleanupAdded){this.botCleanupAdded=true;this.cleanup.push(()=>{if(this.botTimer!==null)clearTimeout(this.botTimer);this.botTimer=null;this.root.inert=false;this.root.style.pointerEvents='';});}
+      const run=()=>{
+        this.botTimer=null;
+        if(cur?.ctx!==this||!this.root||!this.root.isConnected&&this.root.parentNode===null)return;
+        this.botTurn=true;
+        try{this.botMove();}catch(error){console.error('Banan bot move failed:',id,error);}
+        this.botTurn=false;
+      };
+      this.botTimer=setTimeout(run,420);
+    },
+    botMove(){
+      const all=selector=>Array.from(this.root.querySelectorAll(selector));
+      const click=items=>{if(!items.length)return false;items[Math.floor(Math.random()*items.length)].click();return true;};
+      const cells=selector=>all(selector);
+      switch(id){
+        case 'ttt': {
+          const a=cells('.ttt-cell'),empty=a.filter(x=>!x.textContent.trim());
+          if(!empty.length)return false;
+          const size=Math.sqrt(a.length),need=size===3?3:4,me=1,opp=0;
+          const lines=[];
+          for(let r=0;r<size;r++)for(let c=0;c<size;c++)for(const [dr,dc] of [[0,1],[1,0],[1,1],[1,-1]]){
+            const er=r+(need-1)*dr,ec=c+(need-1)*dc;
+            if(er>=size||ec<0||ec>=size)continue;
+            lines.push(Array.from({length:need},(_,k)=>a[(r+k*dr)*size+c+k*dc]));
+          }
+          const mark=x=>x.className.includes('p1')?me:x.className.includes('p0')?opp:-1;
+          for(const target of [me,opp]){
+            for(const line of lines){
+              const occupied=line.filter(x=>mark(x)===target).length;
+              const free=line.filter(x=>mark(x)<0);
+              if(occupied===need-1&&free.length===1)return click([free[0]]);
+            }
+          }
+          const centre=a.filter(x=>{const idx=a.indexOf(x),r=Math.floor(idx/size),c=idx%size;return Math.abs(r-(size-1)/2)<=1&&Math.abs(c-(size-1)/2)<=1;});
+          return click(centre.filter(x=>!x.textContent.trim()).length?centre.filter(x=>!x.textContent.trim()):empty);
+        }
+        case 'c4': {
+          const a=cells('.c4-cell');
+          const top=a.slice(0,7);
+          return click(top.filter(x=>!x.className.includes('p')));
+        }
+        case 'rev': return click(cells('.rev-cell.hint'));
+        case 'dots': {
+          const edges=cells('line.edge'),hits=cells('line.hit');
+          const free=edges.map((x,i)=>x.className.baseVal?.includes('p')||String(x.getAttribute('class')).match(/\bp[01]\b/)?-1:i).filter(i=>i>=0);
+          if(!free.length)return false;
+          const i=free[Math.floor(Math.random()*free.length)];
+          hits[i]?.click();
+          return !!hits[i];
+        }
+        case 'chess': {
+          const a=cells('.x-chess-cell');
+          const pieces=a.filter(x=>(x.getAttribute('aria-label')||'').includes('чёрная'));
+          for(const piece of pieces.sort(()=>Math.random()-.5)){
+            piece.click();
+            const legal=cells('.x-chess-cell.legal');
+            if(legal.length)return click(legal);
+          }
+          return false;
+        }
+        case 'checkers': {
+          const a=cells('.x-check-cell');
+          const pieces=a.filter(x=>Array.from(x.children||[]).some(ch=>String(ch.className).includes('x-check-piece p1')));
+          for(const piece of pieces.sort(()=>Math.random()-.5)){
+            piece.click();
+            const legal=cells('.x-check-cell.possible');
+            if(legal.length)return click(legal);
+          }
+          return false;
+        }
+        case 'gomoku': return click(cells('.x-go-cell').filter(x=>!x.children.length));
+        case 'hex': return click(cells('.x-hex-tile').filter(x=>!/\bp[01]\b/.test(x.className)));
+        case 'quoridor': {
+          const move=cells('.x-mode').find(x=>x.textContent.includes('Ход пешкой'));
+          if(move)move.click();
+          return click(cells('.x-q-cell.available'));
+        }
+        case 'mines': return click(cells('.x-mine-cell').filter(x=>!x.className.includes('opened')));
+        case 'memory': {
+          const free=cells('.x-memory-cell').filter(x=>!x.className.includes('matched')&&!x.className.includes('flipped'));
+          if(free.length<2)return false;
+          free[0].click();
+          const rest=cells('.x-memory-cell').filter(x=>!x.className.includes('matched')&&!x.className.includes('flipped'));
+          if(rest.length)rest[Math.floor(Math.random()*rest.length)].click();
+          return true;
+        }
+        case 'vanish': {
+          const selectable=cells('.x-vanish-item.selectable');
+          if(selectable.length)return click(selectable);
+          const options=cells('.x-vanish-choice').filter(x=>!x.disabled);
+          return click(options);
+        }
+        case 'blockade': {
+          const pawns=cells('.x-block-cell.pawn.p1');
+          if(pawns.length)pawns[Math.floor(Math.random()*pawns.length)].click();
+          return click(cells('.x-block-cell.hint'));
+        }
+        default: return false;
+      }
     },
     end(w,extra){
-      const sc=scores[id]||(scores[id]=Array.from({length:this.players},()=>0));
-      while(sc.length<this.players)sc.push(0);
+      const size=scoreSize;
+      const sc=scores[id]||(scores[id]=Array.from({length:size},()=>0));
+      while(sc.length<size)sc.push(0);
       if(w!==null&&w!==undefined&&Number.isInteger(w)&&sc[w]!==undefined)sc[w]++;
-      const t=w===null?'Ничья':(local?'Победил: '+this.who(w):(w===this.me?'Вы победили':'Победил игрок '+(w+1)));
+      const t=w===null?'Ничья':(count===1&&w===1&&(teamGame||id==='ttt')?'Победил: Компьютер':(local?'Победил: '+this.who(w):(w===this.pov?'Вы победили':'Победила '+this.who(w))));
       this.setStatus(t,w===null?null:w,extra,true);
+      this.root.inert=false;this.root.style.pointerEvents='';
       this.renderScore();
     },
     renderScore(){
-      const sc=scores[id]||(scores[id]=Array.from({length:this.players},()=>0));
-      while(sc.length<this.players)sc.push(0);
+      const size=scoreSize;
+      const sc=scores[id]||(scores[id]=Array.from({length:size},()=>0));
+      while(sc.length<size)sc.push(0);
       const s=$('#score');s.innerHTML='';
-      for(let i=0;i<this.players;i++)s.append(chip(i),el('span','score-name',this.who(i)),el('b','',String(sc[i])));
+      for(let i=0;i<size;i++)s.append(chip(i),el('span','score-name',this.who(i)),el('b','',String(sc[i])));
     }
   };
   return ctx;
@@ -476,30 +605,44 @@ $('#bAgain').onclick=()=>{if(cur)requestStart(cur.id);};
 /* ====================== КРЕСТИКИ-НОЛИКИ ====================== */
 Games.ttt={init(ctx){
   const root=ctx.root;root.innerHTML='';
-  const wrap=el('div','ttt');root.appendChild(wrap);
-  const L=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
-  let board=Array(9).fill(null),turn=ctx.first,over=false,line=null;
+  const players=ctx.players===1?2:ctx.players;
+  const size=players>=3?6:3,connect=players>=3?4:3;
+  const marks=['X','O','△','□'];
+  const lines=[];
+  for(let r=0;r<size;r++)for(let c=0;c<size;c++){
+    for(const [dr,dc] of [[0,1],[1,0],[1,1],[1,-1]]){
+      const er=r+(connect-1)*dr,ec=c+(connect-1)*dc;
+      if(er>=size||ec<0||ec>=size)continue;
+      const line=[];for(let k=0;k<connect;k++)line.push((r+k*dr)*size+c+k*dc);
+      lines.push(line);
+    }
+  }
+  let board=Array(size*size).fill(null),turn=ctx.first%players,over=false,line=null;
+  const wrap=el('div','ttt ttt-'+size);root.appendChild(wrap);
   const cells=[];
-  for(let i=0;i<9;i++){const b=el('button','ttt-cell');b.onclick=()=>click(i);wrap.appendChild(b);cells.push(b);}
+  for(let i=0;i<board.length;i++){
+    const b=el('button','ttt-cell');b.setAttribute('aria-label','Клетка '+(Math.floor(i/size)+1)+' '+(i%size+1));
+    b.onclick=()=>click(i);wrap.appendChild(b);cells.push(b);
+  }
   function draw(){cells.forEach((b,i)=>{
-    b.textContent=board[i]===null?'':(board[i]===0?'X':'O');
+    b.textContent=board[i]===null?'':marks[board[i]];
     b.className='ttt-cell'+(board[i]===null?'':' p'+board[i])+(line&&line.includes(i)?' win':'');
   });}
   function apply(i){
+    if(over||board[i]!==null||i<0||i>=board.length)return;
     board[i]=turn;
-    const w=L.find(l=>l.every(k=>board[k]===turn));
-    if(w){over=true;line=w;draw();ctx.end(turn);return;}
-    if(board.every(v=>v!==null)){over=true;draw();ctx.end(null);return;}
-    turn=1-turn;draw();ctx.turn(turn);
+    const w=lines.find(l=>l.every(k=>board[k]===turn));
+    if(w){over=true;line=w;draw();ctx.end(turn,players>=3?'Четыре символа подряд':'Три символа подряд');return;}
+    if(board.every(v=>v!==null)){over=true;draw();ctx.end(null,'Поле заполнено');return;}
+    turn=(turn+1)%players;draw();ctx.turn(turn);
   }
   function click(i){
     if(over||board[i]!==null||!ctx.canAct(turn))return;
     apply(i);ctx.send({m:i});
   }
-  ctx.onMsg=d=>{if(!over&&board[d.m]===null)apply(d.m);};
-  draw();ctx.turn(turn);
+  ctx.onMsg=d=>{if(!over&&Number.isInteger(d?.m))apply(d.m);};
+  draw();ctx.turn(turn,players>=3?'Поле 6×6 · четыре в ряд':'Классика 3×3');
 }};
-
 /* ====================== ЧЕТЫРЕ В РЯД ====================== */
 Games.c4={init(ctx){
   const R=6,C=7,root=ctx.root;root.innerHTML='';
@@ -657,7 +800,8 @@ Games.dots={init(ctx){
 Games.bs={init(ctx){
   const N=10,FLEET=[5,4,3,3,2],LET='АБВГДЕЖЗИК'.split('');
   let placed=FLEET.map(()=>null),grid=Array(100).fill(-1),inc=Array(100).fill(0),foe=Array(100).fill(0);
-  let phase='place',horiz=true,hover=-1,myReady=false,oppReady=false,pending=false,turn=ctx.first,foeSunk=0;
+  const solo=ctx.local&&ctx.players===1,enemyGrid=Array(100).fill(-1),enemyShips=FLEET.map(()=>null);
+  let phase='place',horiz=true,hover=-1,myReady=false,oppReady=false,pending=false,turn=ctx.first,foeSunk=0,enemySunk=0;
   const root=ctx.root;root.innerHTML='';
   const wrap=el('div','bs');root.appendChild(wrap);
   const sideA=el('div','bs-side'),sideB=el('div','bs-side');wrap.append(sideA,sideB);
@@ -702,6 +846,22 @@ Games.bs={init(ctx){
     return out;
   }
   const canPlace=cs=>!!cs&&cs.every(c=>grid[c]===-1);
+  function randomizeEnemy(){
+    enemyGrid.fill(-1);
+    FLEET.forEach((len,idx)=>{
+      let cs;
+      do{cs=cellsFor(Math.floor(Math.random()*100),len,Math.random()<.5);}
+      while(!cs||cs.some(c=>enemyGrid[c]!==-1));
+      enemyShips[idx]=cs;cs.forEach(c=>enemyGrid[c]=idx);
+    });
+  }
+  function cpuShoot(){
+    const available=inc.map((v,i)=>v===0?i:-1).filter(i=>i>=0);
+    if(!available.length)return;
+    const i=available[Math.floor(Math.random()*available.length)];
+    onShot(i);
+  }
+
   function rebuild(){grid.fill(-1);placed.forEach((cs,idx)=>{if(cs)cs.forEach(c=>grid[c]=idx);});}
   function randomize(){
     placed=FLEET.map(()=>null);grid.fill(-1);
@@ -739,7 +899,7 @@ Games.bs={init(ctx){
     });
   }
   function drawFoe(){
-    const act=phase==='battle'&&turn===ctx.me&&!pending;
+    const act=phase==='battle'&&ctx.canAct(turn)&&!pending;
     foeG.g.classList.toggle('active',act);
     foeG.g.classList.toggle('idle',phase==='place'||phase==='wait');
     foeG.cells.forEach((b,i)=>{
@@ -769,13 +929,29 @@ Games.bs={init(ctx){
   }
   function ready(){
     if(phase!=='place'||!placed.every(Boolean))return;
-    myReady=true;ctx.send({k:'ready'});
+    myReady=true;
+    if(solo){randomizeEnemy();oppReady=true;begin();return;}
+    ctx.send({k:'ready'});
     if(oppReady)begin();
     else{phase='wait';drawAll();ctx.setStatus('Ждём, пока соперник расставит корабли…');}
   }
   function begin(){phase='battle';drawAll();ctx.turn(turn,info());}
   function shoot(i){
-    if(phase!=='battle'||turn!==ctx.me||pending||foe[i]!==0)return;
+    if(phase!=='battle'||!ctx.canAct(turn)||pending||foe[i]!==0)return;
+    if(solo){
+      const ship=enemyGrid[i];
+      let result='miss';
+      if(ship>=0){
+        result='hit';
+        const sunk=enemyShips[ship].every(c=>foe[c]===2||c===i);
+        foe[i]=2;
+        if(sunk){result='sunk';enemyShips[ship].forEach(c=>foe[c]=3);enemySunk++;}
+      }else foe[i]=1;
+      if(enemySunk===FLEET.length){phase='done';drawAll();ctx.end(0,'Вы потопили весь флот компьютера');return;}
+      turn=result==='miss'?1:0;
+      drawAll();ctx.turn(turn,info());
+      return;
+    }
     pending=true;drawFoe();ctx.send({k:'shot',i});
   }
   function onShot(i){
@@ -790,8 +966,8 @@ Games.bs={init(ctx){
       }else r='hit';
     }
     ctx.send({k:'res',i,r,cells,over});
-    if(over){phase='done';drawAll();ctx.end(1-ctx.me,info());return;}
-    turn=r==='miss'?ctx.me:1-ctx.me;
+    if(over){phase='done';drawAll();ctx.end(solo?1:1-ctx.team,info());return;}
+    turn=r==='miss'?ctx.team:1-ctx.team;
     drawAll();ctx.turn(turn,info());
   }
   function onRes(d){
@@ -799,14 +975,30 @@ Games.bs={init(ctx){
     if(d.r==='miss')foe[d.i]=1;
     else if(d.r==='hit')foe[d.i]=2;
     else{d.cells.forEach(c=>foe[c]=3);foeSunk++;}
-    if(d.over){phase='done';drawAll();ctx.end(ctx.me,info());return;}
-    turn=d.r==='miss'?1-ctx.me:ctx.me;
+    if(d.over){phase='done';drawAll();ctx.end(ctx.team,info());return;}
+    turn=d.r==='miss'?1-ctx.team:ctx.team;
+    drawAll();ctx.turn(turn,info());
+  }
+  if(solo)ctx.botMove=cpuShoot;
+  function applyTeamIncomingResult(d){
+    pending=false;
+    if(d.r==='miss')inc[d.i]=1;
+    else if(d.r==='hit')inc[d.i]=2;
+    else if(d.r==='sunk'&&Array.isArray(d.cells))d.cells.forEach(c=>{if(Number.isInteger(c)&&c>=0&&c<100)inc[c]=2;});
+    if(d.over){phase='done';drawAll();ctx.end(1-ctx.team,info());return;}
+    turn=d.r==='miss'?ctx.team:1-ctx.team;
     drawAll();ctx.turn(turn,info());
   }
   ctx.onMsg=d=>{
     if(d.k==='ready'){oppReady=true;if(myReady&&phase==='wait')begin();else placeStatus();}
-    else if(d.k==='shot')onShot(d.i);
-    else if(d.k==='res')onRes(d);
+    else if(d.k==='shot'){
+      // In 3/4-player team games only the team's first seat resolves incoming shots.
+      if(ctx.players>=3&&(ctx.me!==ctx.team||(Number.isInteger(d._from)&&d._from%2===ctx.team)))return;
+      onShot(d.i);
+    }else if(d.k==='res'){
+      if(ctx.players>=3&&Number.isInteger(d._from)&&d._from%2===ctx.team)applyTeamIncomingResult(d);
+      else onRes(d);
+    }
   };
   const kh=e=>{if(phase==='place'&&'rRкК'.includes(e.key)&&e.key.length===1){horiz=!horiz;rotLabel();drawMine();}};
   document.addEventListener('keydown',kh);
@@ -828,6 +1020,12 @@ if (typeof window.registerExtraGames === 'function') {
 } else {
   console.error('Не удалось загрузить библиотеку новых игр.');
 }
+/* Every game has a real 1–4 player mode. Classic two-side games use team seats above two players. */
+const individualGames=new Set(['ttt','durak','lastcard','poker','dungeon','kingdom']);
+LIST.forEach(game=>{
+  game.minPlayers=1;game.maxPlayers=4;
+  game.teamGame=!individualGames.has(game.id);
+});
 /* ====================== СТАРТ ====================== */
 renderConn();
 const q=new URLSearchParams(location.search).get('room');

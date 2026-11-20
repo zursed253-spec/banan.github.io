@@ -32,7 +32,8 @@
         return b;
       },
       allow(ctx, player, remote) {
-        return remote ? !ctx.local && player !== ctx.me : ctx.canAct(player);
+        // Server relays only other clients' moves; teammate moves are valid too.
+        return remote ? !ctx.local : ctx.canAct(player);
       },
       rng(seed) {
         let x = (seed | 0) ^ 0x6D2B79F5;
@@ -54,7 +55,7 @@
       },
       within(n, size) { return Number.isInteger(n) && n >= 0 && n < size; },
       register(id, name, desc, local, icon, init) {
-        LIST.push({ id, name, desc, local, online: true, icon });
+        LIST.push({ id, name, desc, local, online: true, minPlayers:1, maxPlayers:4, teamGame:true, icon });
         Games[id] = { init };
       },
     };
@@ -114,7 +115,7 @@
       let b = 'rnbqkbnrpppppppp................................PPPPPPPPRNBQKBNR'.split('').map(p => p === '.' ? null : p);
       let rights = {K:true,Q:true,k:true,q:true};
       let ep = -1, turn = 0, last = [], selected = -1, ended = false, pending = null;
-      let halfmove = 0, fullmove = 1, flipped = ctx.me === 1;
+      let halfmove = 0, fullmove = 1, flipped = ctx.pov === 1;
       let moveHistory = [], snapshots = [];
       let positionCounts = Object.create(null);
 
@@ -519,7 +520,7 @@
       function draw(){
         boardEl.textContent='';const possible=selected>=0?options(selected).map(m=>m.to):[];
         for(let visual=0;visual<64;visual++){
-          const i=ctx.me===1?63-visual:visual, r=i>>3,c=i&7,p=board[i];
+          const i=ctx.pov===1?63-visual:visual, r=i>>3,c=i&7,p=board[i];
           const cell=U.button('x-check-cell '+((r+c)%2?'deep':'light')+
             (selected===i?' selected':'')+(possible.includes(i)?' possible':'')+(last.includes(i)?' last':''),
             'Шашечная клетка '+(i+1),()=>click(i));
@@ -887,8 +888,8 @@
       const moveKeys={w:'up',s:'down',a:'left',d:'right',ArrowUp:'up',ArrowDown:'down',ArrowLeft:'left',ArrowRight:'right'};
       const aimKeys={i:'up',k:'down',j:'left',l:'right'};
       const isAligned=d=>d && (Math.abs(d.dr)+Math.abs(d.dc)===1);
-      const own=()=>ctx.local?localSelected:ctx.me;
-      const ensureActor=(actor,remote)=>actor>=0&&actor<=1&&(remote?!ctx.local&&actor===1-ctx.me:(ctx.local||actor===ctx.me));
+      const own=()=>ctx.local?localSelected:ctx.pov;
+      const ensureActor=(actor,remote)=>actor>=0&&actor<=1&&(remote?!ctx.local:(ctx.local||actor===ctx.pov));
       function notify(text){
         info.textContent=text;
         info.dataset.updated=String(Date.now());

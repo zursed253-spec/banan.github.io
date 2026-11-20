@@ -146,3 +146,24 @@ test('cooperative dungeon accepts a four-player room',()=>{
   assert.equal(find(ctx.root,'cg-dungeon-card').length>0,true);
   ctx.cleanup.forEach(fn=>fn());
 });
+
+
+test('all card games build with two, three and four human seats',()=>{
+  for(const id of ['durak','lastcard','poker','dungeon','kingdom']){
+    for(const players of [2,3,4]){
+      const ctx=makeContext(id,players,false,0);
+      assert.ok(ctx.root.children.length>0,id+' renders with '+players+' participants');
+      if(id==='dungeon')assert.equal(find(ctx.root,'cg-hero').length,players,'co-op dungeon allocates one hero per player');
+      ctx.cleanup.forEach(fn=>fn());
+    }
+  }
+});
+
+test('solo card-game seat allocator creates three bot opponents',()=>{
+  for(const id of ['durak','lastcard','poker','kingdom']){
+    const ctx=makeContext(id,1,true,null);
+    const seats=find(ctx.root,'cg-seat');
+    assert.ok(ctx.root.children.length>0,id+' starts a solo match against bots');
+    ctx.cleanup.forEach(fn=>fn());
+  }
+});
