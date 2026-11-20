@@ -3,6 +3,8 @@ on:
   push:
     paths:
       - "games-extra.js"
+      - "index.html"
+      - "tests/hub-modes.test.cjs"
       - "games-cards.js"
       - "games-extra.css"
       - "site.css"
@@ -14,6 +16,8 @@ on:
   pull_request:
     paths:
       - "games-extra.js"
+      - "index.html"
+      - "tests/hub-modes.test.cjs"
       - "games-cards.js"
       - "games-extra.css"
       - "site.css"
@@ -33,4 +37,4 @@ jobs:
       - run: node --check games-extra.js
       - run: node --check games-cards.js
       - run: node --check site-personalize.js
-      - run: node --test tests/extra-games.test.cjs tests/game-cards.test.cjs tests/site-personalize.test.cjs
+      - run: node --test tests/extra-games.test.cjs tests/game-cards.test.cjs tests/site-personalize.test.cjs tests/hub-modes.test.cjs
