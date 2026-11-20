@@ -1446,7 +1446,9 @@
         }
       };
 
-      if(ctx.local||ctx.canAct(turn))beginRound(false);
+      // In 3–4 player team mode only the first seat on the active team
+      // starts a round; the teammate receives the same seeded start message.
+      if(ctx.local||(ctx.canAct(turn)&&(ctx.players<3||ctx.me===turn)))beginRound(false);
       else draw();
     }
     U.register('vanish','Что пропало?','10 предметов на столе. Один игрок выбирает, что исчезнет, второй угадывает. Роли меняются каждый раунд.',true,vanishedIcon,vanishedInit);
@@ -1584,8 +1586,10 @@
       }
       ctx.onMsg=d=>{
         if(!d||typeof d.k!=='string'||!ctx.canRemoteAct(turn,d._from)) return;
-        if(d.k==='block-move') movePawn(d.index,d.r,d.c,true);
-        else if(d.k==='block-wall') placeWall(d.type,d.r,d.c,true);
+        if(d.k==='block-move'&&U.within(d.index,2)&&U.within(d.r,N)&&U.within(d.c,N))
+          movePawn(d.index,d.r,d.c,true);
+        else if(d.k==='block-wall'&&(d.type==='h'||d.type==='v')&&U.within(d.r,N-1)&&U.within(d.c,N-1))
+          placeWall(d.type,d.r,d.c,true);
       };
       draw(); ctx.turn(turn,'Передвиньте фишку или поставьте стену');
     }
