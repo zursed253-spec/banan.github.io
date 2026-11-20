@@ -348,8 +348,13 @@ test('turn-based team games relay valid moves to both a teammate and the opposin
       assert.ok(move,game+' emits a move for '+players+' players');
       teammate.onMsg({...move,_from:0});
       opponent.onMsg({...move,_from:0});
-      assert.ok(teammate.log.length>teammateLog,game+' teammate applies the move');
-      assert.ok(opponent.log.length>opponentLog,game+' opponent applies the move');
+      if(game==='memory'){
+        assert.equal(find(teammate.root,'x-memory-cell').filter(cell=>cell.className.includes('flipped')).length,1,'memory teammate receives the first open card');
+        assert.equal(find(opponent.root,'x-memory-cell').filter(cell=>cell.className.includes('flipped')).length,1,'memory opponent receives the first open card');
+      }else{
+        assert.ok(teammate.log.length>teammateLog,game+' teammate applies the move');
+        assert.ok(opponent.log.length>opponentLog,game+' opponent applies the move');
+      }
       captain.cleanup.forEach(fn=>fn());teammate.cleanup.forEach(fn=>fn());opponent.cleanup.forEach(fn=>fn());
     }
   }
