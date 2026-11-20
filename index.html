@@ -992,7 +992,7 @@ Games.bs={init(ctx){
     if(d.k==='ready'){oppReady=true;if(myReady&&phase==='wait')begin();else placeStatus();}
     else if(d.k==='shot'){
       // In 3/4-player team games only the team's first seat resolves incoming shots.
-      if(ctx.players>=3&&ctx.me!==ctx.team)return;
+      if(ctx.players>=3&&(ctx.me!==ctx.team||(Number.isInteger(d._from)&&d._from%2===ctx.team)))return;
       onShot(d.i);
     }else if(d.k==='res'){
       if(ctx.players>=3&&Number.isInteger(d._from)&&d._from%2===ctx.team)applyTeamIncomingResult(d);
