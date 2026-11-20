@@ -205,3 +205,43 @@ function testChessFeatures(){
   console.log('Chess history, threefold draw claim, undo and castling scenarios passed');
 }
 testChessFeatures();
+
+
+function testChessVisualsAndPromotion(){
+  const view=ctx('chess',105,0,null,true);
+  const ranks=find(view.root,'x-chess-ranks')[0],files=find(view.root,'x-chess-files')[0];
+  assert.equal(ranks.textContent,'87654321','ranks run from eight to one');
+  assert.equal(files.textContent,'abcdefgh','file letters appear outside board');
+  const firstPiece=find(view.root,'x-chess-piece')[0];
+  assert.equal(firstPiece.children[0].tagName,'svg','chess pieces use SVG instead of device fonts');
+  assert.equal(firstPiece.children[0].attrs.viewBox,'0 0 48 48','every SVG has scalable coordinates');
+  find(view.root,'x-chess-flip')[0].click();
+  assert.equal(ranks.textContent,'12345678','ranks flip with board');
+  assert.equal(files.textContent,'hgfedcba','file letters flip with board');
+  view.cleanup.forEach(fn=>fn());
+
+  const promotion=ctx('chess',106,0,null,true);
+  const squares=()=>find(promotion.root,'x-chess-cell');
+  const step=(a,b)=>{squares()[a].click();squares()[b].click();};
+  step(48,32); // a4
+  step(8,24);  // ...a5
+  step(49,33); // b4
+  step(24,33); // ...axb4
+  step(32,24); // a5
+  step(9,17);  // ...b6
+  step(24,17); // axb6
+  step(14,22); // ...g6
+  step(17,9);  // b7
+  step(13,21); // ...f6
+  step(9,0);   // bxa8=?
+  const buttons=find(promotion.root,'x-promo-btn');
+  assert.equal(buttons.length,4,'promotion offers queen, rook, bishop and knight');
+  buttons[0].click();
+  assert.equal(squares()[0].children.find(x=>x.className.includes('x-chess-piece'))?.textContent,'♕',
+    'selected queen is placed on promotion square');
+  assert.equal(find(promotion.root,'x-promo-btn').length,0,'promotion picker closes after move');
+  assert.match(find(promotion.root,'x-chess-move-row').at(-1).textContent,/=Q/,'promotion is recorded in SAN history');
+  promotion.cleanup.forEach(fn=>fn());
+  console.log('Chess SVG pieces, axis labels, board flip, and promotion passed');
+}
+testChessVisualsAndPromotion();
