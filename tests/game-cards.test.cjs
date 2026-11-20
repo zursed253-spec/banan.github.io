@@ -190,10 +190,10 @@ test('multiway poker accepts the current actor action and advances on every clie
 
 
 test('all card games support local pass-and-play with one to four participants',()=>{
-  for(const game of list){
+  for(const game of LIST){
     for(const players of [1,2,3,4]){
-      const instance=makeContext(game,players,true,0);
-      assert.ok(instance.root.children.length>0,game+' local '+players+' players');
+      const instance=makeContext(game.id,players,true,0);
+      assert.ok(instance.root.children.length>0,game.id+' local '+players+' players');
       instance.cleanup.forEach(fn=>fn());
     }
   }
