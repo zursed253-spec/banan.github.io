@@ -258,18 +258,6 @@
         ended=true; selected=-1; pending=null; promoPanel.textContent='';
         ctx.end(null,reason); draw();
       }
-      function claimDraw() {
-        if(ended) return;
-        const type=canClaimThreefold()?'threefold':canClaimFifty()?'fifty':null;
-        if(!type) return;
-        ctx.send({claim:type});
-        acceptClaim(type);
-      }
-      function acceptClaim(type) {
-        if(ended) return;
-        if(type==='threefold'&&canClaimThreefold()) setDraw('Ничья — троекратное повторение позиции');
-        else if(type==='fifty'&&canClaimFifty()) setDraw('Ничья — правило 50 ходов');
-      }
       function moveText(m,promotion) {
         const piece=b[m.from], type=piece.toLowerCase();
         const capture=!!b[m.to]||!!m.ep;
@@ -416,8 +404,6 @@
             'Клетка '+squareName(i)+(piece?', '+(side(piece)===0?'белая ':'чёрная ')+pieceNames[piece.toLowerCase()]:''),()=>click(i));
           cell.setAttribute('role','gridcell');
           cell.setAttribute('aria-pressed',selected===i?'true':'false');
-          const showRank=flipped?c===7:c===0, showFile=flipped?r===0:r===7;
-          // Coordinates are rendered outside the board for clear edges on small screens.
           if(piece){
             const span=U.make('span','x-chess-piece '+(side(piece)===0?'white':'black'),glyph[piece]);
             span.setAttribute('aria-hidden','true');
