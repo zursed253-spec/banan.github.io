@@ -312,6 +312,7 @@ function fail(e){
   else if(t==='server_busy')m='Сервер занят. Попробуйте позже.';
   else if(t==='not_connected')m='Пока никто не подключён к комнате.';
   else if(t==='not_host')m='Запустить игру может только создатель комнаты.';
+  else if(t==='game_in_progress')m='Партия уже началась. Попросите создателя вернуться в меню, чтобы присоединиться.';
   else if(t==='socket_error')m='Не удалось открыть WebSocket. Проверьте, запущен ли сервер Render и правильно ли указан адрес.';
   else if(t==='socket_closed')m='Соединение с сервером прервано. Обновите страницу или попробуйте позже.';
   resetNet();Net.msg=m;renderConn();showHub();
@@ -358,7 +359,7 @@ function connectServer(mode,code,maxPlayers=2){
         Net.code=genCode();Net.open=false;
         sendSignal({t:'host',code:Net.code,maxPlayers:Net.maxPlayers});
       }else if(msg.code==='game_in_progress'){
-        Net.msg='Партия уже началась. Попросите создателя вернуться в меню, чтобы присоединиться.';renderConn();
+        fail({type:'game_in_progress'});
       }else if(msg.code==='not_connected'){
         Net.msg='Ожидаем подключения друга.';renderConn();
       }else fail({type:msg.code});
