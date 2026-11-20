@@ -68,6 +68,7 @@ function createApp() {
     socket.role = null;
     if (!room) return;
 
+    room.gameStarted = false;
     const index = room.players.indexOf(socket);
     if (index < 0) return;
     room.players.splice(index, 1);
@@ -138,7 +139,7 @@ function createApp() {
         const requested = Number(msg.maxPlayers);
         const maxPlayers = Number.isInteger(requested) && requested >= MIN_PLAYERS && requested <= MAX_PLAYERS
           ? requested : MIN_PLAYERS;
-        const room = { players: [socket], maxPlayers };
+        const room = { players: [socket], maxPlayers, gameStarted: false };
         rooms.set(msg.code, room);
         socket.room = msg.code;
         socket.role = 0;
@@ -157,6 +158,7 @@ function createApp() {
           error(socket, 'room_not_found');
           return;
         }
+        if (room.gameStarted) { error(socket, 'game_in_progress'); return; }
         if (room.players.length >= room.maxPlayers) { error(socket, 'room_full'); return; }
         socket.room = msg.code;
         socket.role = room.players.length;
@@ -179,6 +181,8 @@ function createApp() {
           error(socket, 'not_host');
           return;
         }
+        if (msg.payload.t === 'start') room.gameStarted = true;
+        else if (msg.payload.t === 'menu') room.gameStarted = false;
         room.players.forEach(player => {
           if (player !== socket) send(player, { t: 'data', payload: msg.payload, from: socket.role });
         });
