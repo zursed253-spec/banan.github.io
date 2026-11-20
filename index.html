@@ -957,10 +957,25 @@ Games.bs={init(ctx){
     drawAll();ctx.turn(turn,info());
   }
   if(solo)ctx.botMove=cpuShoot;
+  function applyTeamIncomingResult(d){
+    pending=false;
+    if(d.r==='miss')inc[d.i]=1;
+    else if(d.r==='hit')inc[d.i]=2;
+    else if(d.r==='sunk'&&Array.isArray(d.cells))d.cells.forEach(c=>{if(Number.isInteger(c)&&c>=0&&c<100)inc[c]=2;});
+    if(d.over){phase='done';drawAll();ctx.end(1-ctx.team,info());return;}
+    turn=d.r==='miss'?ctx.team:1-ctx.team;
+    drawAll();ctx.turn(turn,info());
+  }
   ctx.onMsg=d=>{
     if(d.k==='ready'){oppReady=true;if(myReady&&phase==='wait')begin();else placeStatus();}
-    else if(d.k==='shot')onShot(d.i);
-    else if(d.k==='res')onRes(d);
+    else if(d.k==='shot'){
+      // In 3/4-player team games only the team's first seat resolves incoming shots.
+      if(ctx.players>=3&&ctx.me!==ctx.team)return;
+      onShot(d.i);
+    }else if(d.k==='res'){
+      if(ctx.players>=3&&Number.isInteger(d._from)&&d._from%2===ctx.team)applyTeamIncomingResult(d);
+      else onRes(d);
+    }
   };
   const kh=e=>{if(phase==='place'&&'rRкК'.includes(e.key)&&e.key.length===1){horiz=!horiz;rotLabel();drawMine();}};
   document.addEventListener('keydown',kh);
