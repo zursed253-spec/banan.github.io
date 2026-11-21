@@ -122,6 +122,7 @@ input[type=text],#iCode{border:1px solid #b9bdc2;border-radius:4px;padding:8px 1
 .foot{margin-top:40px;color:var(--muted);font-size:12px;text-align:center}
 </style>
 <link rel="stylesheet" href="games-extra.css?v=8">
+<link rel="stylesheet" href="games-realtime.css?v=1">
 <link rel="stylesheet" href="site.css?v=3">
 </head>
 <body>
@@ -156,7 +157,7 @@ input[type=text],#iCode{border:1px solid #b9bdc2;border-radius:4px;padding:8px 1
     <div class="panel" id="conn"></div>
     <div class="sec">Игры</div>
     <div class="cards" id="cards"></div>
-    <p class="foot">Онлайн-комнаты поддерживают до четырёх игроков. Создайте комнату и отправьте код компании.</p>
+    <p class="foot">Онлайн-комнаты поддерживают до десяти игроков. Создайте комнату и отправьте код компании.</p>
   </section>
 
   <section id="gameView" hidden>
@@ -174,6 +175,7 @@ input[type=text],#iCode{border:1px solid #b9bdc2;border-radius:4px;padding:8px 1
 <script src="site-personalize.js?v=2"></script>
 <script src="games-extra.js?v=8"></script>
 <script src="games-cards.js?v=1"></script>
+<script src="games-realtime.js?v=1"></script>
 <script>
 (()=>{
 'use strict';
@@ -235,7 +237,7 @@ function renderCards(){
     const d=el('div');
     d.appendChild(el('h3','',g.name));d.appendChild(el('p','',g.desc));
     if(g.id==='vanish')d.appendChild(el('span','tag','НОВИНКА · 36 мемов'));
-    const format=g.id==='ttt'?'1–4 игрока · 3–4: поле 6×6':g.teamGame?'1 игрок против ИИ · 2–4 игрока · команды':'1–4 игрока · боты / компания';
+    const format=g.id==='ttt'?'1–4 игрока · 3–4: поле 6×6':g.maxPlayers===10?'2–10 игроков · онлайн':g.teamGame?'1–4 игрока · команды':'1–4 игрока · боты / компания';
     d.appendChild(el('span','tag',format));
     b.appendChild(d);
     b.onclick=()=>{
@@ -251,7 +253,7 @@ function renderConn(){
   const link=()=>location.href.split('?')[0].split('#')[0]+'?room='+Net.code+'&server='+encodeURIComponent(serverURL);
   if(Net.state==='idle'){
     h='<div class="conn-grid"><div><div class="lbl">Онлайн с компанией</div>'+
-      '<div class="line"><label class="hint" for="roomCount">Игроков в комнате</label><select id="roomCount" class="select-small"><option value="2">2 игрока</option><option value="3">3 игрока</option><option value="4" selected>4 игрока</option></select></div>'+
+      '<div class="line"><label class="hint" for="roomCount">Игроков в комнате</label><select id="roomCount" class="select-small"><option value="2">2 игрока</option><option value="3">3 игрока</option><option value="4" selected>4 игрока</option><option value="5">5 игроков</option><option value="6">6 игроков</option><option value="7">7 игроков</option><option value="8">8 игроков</option><option value="9">9 игроков</option><option value="10">10 игроков</option></select></div>'+
       '<div class="line"><button class="btn primary" id="bHost">Создать комнату</button></div>'+
       '<div class="line"><input id="iCode" maxlength="5" placeholder="Код комнаты" autocomplete="off"><button class="btn" id="bJoin">Войти</button></div>'+
       '<div class="hint">Сервер игры (Render):</div><div class="line"><input id="iServer" type="text" autocomplete="url" spellcheck="false" style="width:min(100%,390px);text-transform:none;letter-spacing:normal" placeholder="https://имя.onrender.com"></div><p class="hint">Обычно менять адрес не нужно. После создания сервиса Render укажи здесь его адрес один раз.</p></div>'+
@@ -376,7 +378,7 @@ function startHost(){
     if(inp)persistServer(normalizeServer(inp.value));
   }catch(e){Net.msg=e.message;renderConn();return;}
   const requested=Number($('#roomCount')?.value||4);
-  connectServer('host',genCode(),Math.max(2,Math.min(4,requested)));
+  connectServer('host',genCode(),Math.max(2,Math.min(10,requested)));
 }
 function join(code){
   code=String(code||'').trim().toUpperCase();
@@ -426,7 +428,7 @@ function makeCtx(id,first,n,players){
   const local=Net.state==='local';
   const meta=LIST.find(g=>g.id===id)||{};
   const teamGame=!!meta.teamGame;
-  const count=Math.max(1,Math.min(4,Number(players)||Net.players||2));
+  const count=Math.max(1,Math.min(10,Number(players)||Net.players||2));
   const botSeatGame=count===1&&['durak','lastcard','poker','kingdom'].includes(id);
   const scoreSize=teamGame?2:(botSeatGame?4:Math.max(count,id==='ttt'&&count===1?2:count));
   const ctx={
@@ -601,7 +603,7 @@ function makeCtx(id,first,n,players){
 function launch(id,first,n,players){
   const gameMeta=LIST.find(game=>game.id===id);
   if(!Games[id]||!gameMeta)return;
-  if(players!==undefined)Net.players=Math.max(1,Math.min(4,Number(players)||Net.players||2));
+  if(players!==undefined)Net.players=Math.max(1,Math.min(10,Number(players)||Net.players||2));
   if(Net.players<(gameMeta.minPlayers??2)||Net.players>(gameMeta.maxPlayers??2))return;
   if(Net.state!=='connected'&&Net.state!=='local')return;
   if(cur){cur.ctx.cleanup.forEach(f=>f());cur=null;}
@@ -1237,14 +1239,16 @@ if (typeof window.registerExtraGames === 'function') {
   if(arenaIndex>=0)LIST.splice(arenaIndex,1);
   LIST.forEach(game=>{game.minPlayers=game.minPlayers??2;game.maxPlayers=game.maxPlayers??2;});
   if(typeof window.registerCardGames==='function')window.registerCardGames(Games,LIST,el);
+  if(typeof window.registerRealtimeGames==='function')window.registerRealtimeGames(Games,LIST);
 } else {
   console.error('Не удалось загрузить библиотеку новых игр.');
 }
 /* Every game has a real 1–4 player mode. Classic two-side games use team seats above two players. */
-const individualGames=new Set(['ttt','durak','lastcard','poker','dungeon','kingdom']);
+const individualGames=new Set(['ttt','durak','lastcard','poker','dungeon','kingdom','agar','territory']);
+const largeRoomGames=new Set(['agar','territory']);
 LIST.forEach(game=>{
-  game.minPlayers=1;game.maxPlayers=4;
-  game.teamGame=!individualGames.has(game.id);
+  if(largeRoomGames.has(game.id)){game.minPlayers=2;game.maxPlayers=10;game.teamGame=false;}
+  else{game.minPlayers=1;game.maxPlayers=4;game.teamGame=!individualGames.has(game.id);}
 });
 /* ====================== СТАРТ ====================== */
 renderConn();
