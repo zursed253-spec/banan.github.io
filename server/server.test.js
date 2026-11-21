@@ -177,9 +177,10 @@ test('ten-player rooms accept all seats and relay state to every other participa
   }
   assert.equal(rooms.get('TWN23').players.length,10);
   const broadcasts=sockets.slice(0,9).map(s=>waitFor(s,m=>m.t==='data'&&m.payload?.d?.snapshot===42));
-  sockets[9].send(JSON.stringify({t:'data',payload:{t:'g',n:5,d:{snapshot:42}}}));
+  sockets[9].send(JSON.stringify({t:'data',payload:{t:'g',n:5,d:{snapshot:42,mapDelta:'x'.repeat(90000)}}}));
   const received=await Promise.all(broadcasts);
   assert.ok(received.every(m=>m.from===9),'the tenth seat is relayed as sender role 9');
+  assert.equal(received[0].payload.d.mapDelta.length,90000,'large territory deltas fit the relay payload limit');
   const full=waitFor(sockets[10],m=>m.t==='error');
   sockets[10].send(JSON.stringify({t:'join',code:'TWN23'}));
   assert.equal((await full).code,'room_full');
