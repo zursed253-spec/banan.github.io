@@ -73,9 +73,11 @@
     const rgb = [1,3,5].map(i => parseInt(hex.slice(i,i+2),16));
     const mix = (a,b,t) => Math.round(a*(1-t)+b*t);
     const color = (v) => '#' + v.map(n=>n.toString(16).padStart(2,'0')).join('');
-    root.style.setProperty('--accent',hex);
-    root.style.setProperty('--accent-soft',color(rgb.map(n=>mix(n,root.dataset.theme==='dark'?30:255,.86))));
-    root.style.setProperty('--accent-rgb',rgb.join(','));
+    if(root.style&&typeof root.style.setProperty==='function'){
+      root.style.setProperty('--accent',hex);
+      root.style.setProperty('--accent-soft',color(rgb.map(n=>mix(n,root.dataset.theme==='dark'?30:255,.86))));
+      root.style.setProperty('--accent-rgb',rgb.join(','));
+    }
     if(picker)picker.value=hex;
     if(pickerValue)pickerValue.textContent=hex.toUpperCase();
     setStored(COLOR_KEY,hex);
