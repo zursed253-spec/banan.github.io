@@ -20,3 +20,6 @@
 .rt-territory .rt-info{max-width:calc(100% - 260px)}
 @media(max-width:650px){.rt-stage{height:calc(100dvh - 235px);min-height:420px;border-radius:13px}.rt-hud{inset:8px 8px auto;gap:6px}.rt-timer{padding:7px 10px;font-size:20px}.rt-leaderboard{min-width:118px;max-width:47vw;padding:7px 9px;font-size:11px}.rt-info{left:8px;bottom:8px;max-width:calc(100% - 110px);padding:7px 9px;font-size:10px}.rt-dash{right:8px;bottom:8px;min-width:66px;min-height:50px;padding:8px 11px;font-size:12px}.rt-abilities{right:7px;bottom:7px;gap:5px}.rt-ability{width:59px;height:56px;padding:4px;font-size:9px}.rt-ability b{font-size:17px}.rt-territory .rt-info{max-width:calc(100% - 220px)}}
 @media(prefers-reduced-motion:reduce){.rt-ability,.rt-dash{transition:none}}
+
+.rt-minimap{position:absolute;z-index:2;left:12px;bottom:58px;width:128px;height:128px;border:2px solid rgba(255,255,255,.86);border-radius:10px;box-shadow:0 5px 18px rgba(0,0,0,.24);image-rendering:pixelated;pointer-events:none}
+@media(max-width:650px){.rt-minimap{left:8px;bottom:60px;width:88px;height:88px;border-radius:8px}}
