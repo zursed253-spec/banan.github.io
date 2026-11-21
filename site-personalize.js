@@ -3,6 +3,8 @@
   'use strict';
   const THEME_KEY = 'banan-theme';
   const STICKER_KEY = 'banan-stickers';
+  const COLOR_KEY = 'banan-accent-color';
+  const DEFAULT_COLOR = '#2f7780';
   const MAX_STICKERS = 3;
   const root = document.documentElement;
   const toggle = document.getElementById('decorToggle');
@@ -59,8 +61,29 @@
       button.setAttribute('aria-pressed', button.dataset.siteTheme === theme ? 'true' : 'false');
     }
     setStored(THEME_KEY, theme);
+    if(picker)applyAccent(picker.value);
   }
 
+  const picker = document.getElementById('themeColor');
+  const pickerValue = document.getElementById('themeColorValue');
+  const pickerReset = document.getElementById('themeColorReset');
+  function applyAccent(value) {
+    if (!/^#[0-9a-f]{6}$/i.test(value)) return;
+    const hex = value.toLowerCase();
+    const rgb = [1,3,5].map(i => parseInt(hex.slice(i,i+2),16));
+    const mix = (a,b,t) => Math.round(a*(1-t)+b*t);
+    const color = (v) => '#' + v.map(n=>n.toString(16).padStart(2,'0')).join('');
+    root.style.setProperty('--accent',hex);
+    root.style.setProperty('--accent-soft',color(rgb.map(n=>mix(n,root.dataset.theme==='dark'?30:255,.86))));
+    root.style.setProperty('--accent-rgb',rgb.join(','));
+    if(picker)picker.value=hex;
+    if(pickerValue)pickerValue.textContent=hex.toUpperCase();
+    setStored(COLOR_KEY,hex);
+  }
+  if(picker)picker.addEventListener('input',()=>applyAccent(picker.value));
+  if(pickerReset)pickerReset.addEventListener('click',()=>applyAccent(DEFAULT_COLOR));
+  const savedAccent=getStored(COLOR_KEY);
+  applyAccent(savedAccent && /^#[0-9a-f]{6}$/i.test(savedAccent)?savedAccent:DEFAULT_COLOR);
   const stickers = [];
   const stored = getStored(STICKER_KEY);
   if (stored) {
