@@ -235,6 +235,7 @@
     let players=[],ticks=0,timeLeft=TIME/1000,started=false,ended=false,acc=0,lastPacked=new Uint8Array(CELLS),view={map:new Uint8Array(CELLS),players:[],timeLeft:120000};
     const inputs=Array.from({length:ctx.players},()=>({dir:-1,ability:-1}));
     let swipe=null,cam={x:W/2,y:H/2},lastSnapshot=0;
+    const abilityButtons=[],abilityLabels=[];
     const colors=COLORS.slice(0,ctx.players);
     const rgb=colors.map(c=>[1,3,5].map(i=>parseInt(c.slice(i,i+2),16)));
     const mix=(hex,k,to)=>'#'+[1,3,5].map(i=>Math.round(parseInt(hex.slice(i,i+2),16)*(1-k)+to*k).toString(16).padStart(2,'0')).join('');
@@ -299,6 +300,7 @@
       for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++){const i=y*W+x,v=map[i]||0,o=v&15,tr=v>>4,px=ox+x*tile,py=oy+y*tile;if(o){g.fillStyle=terr[o-1]||'#ddd';g.fillRect(px,py,tile,tile);}if(tr){g.fillStyle=trailColors[tr-1]||'#bbb';g.fillRect(px,py,tile,tile);}}
       for(const p of ps){if(!p.alive)continue;const px=ox+(p.x+.5)*tile,py=oy+(p.y+.5)*tile;g.fillStyle=edge[p.id-1]||'#333';g.beginPath();g.roundRect(px-tile*.56,py-tile*.56,tile*1.12,tile*1.12,Math.max(2,tile*.2));g.fill();g.fillStyle=colors[p.id-1];g.beginPath();g.roundRect(px-tile*.42,py-tile*.42,tile*.84,tile*.84,Math.max(2,tile*.16));g.fill();if(p.shield>0){g.strokeStyle='#fff';g.lineWidth=2;g.strokeRect(px-tile*.65,py-tile*.65,tile*1.3,tile*1.3);}g.font='700 11px system-ui';g.textAlign='center';g.lineWidth=3;g.strokeStyle='#0009';g.strokeText(p.name,px,py-tile*.7);g.fillStyle='#fff';g.fillText(p.name,px,py-tile*.7);}
       timer.textContent=formatMs((host?timeLeft:(view.timeLeft??120))*1000);
+      abilityLabels.forEach((label,k)=>{const cd=me.cd?.[k]||0;label.textContent=cd>0?Math.ceil(cd*TICK/1000)+' с':abilityNames[k];abilityButtons[k].classList.toggle('on',k===0?(me.boost>0):k===1?(me.shield>0):false);});
       ui.info.textContent='Ваша территория: '+(counts.length?((counts[ctx.me+1]||0)/CELLS*100).toFixed(1):'0.0')+'% · WASD / стрелки · 1–3 способности';
       const rank=ps.slice().sort((a,b)=>(counts[b.id]||0)-(counts[a.id]||0)).map(p=>({name:p.id===ctx.me+1?'Вы':p.name,value:(counts.length?((counts[p.id]||0)/CELLS*100).toFixed(1):'0.0')+'%',color:colors[p.id-1]}));setBoard(board,rank);
       drawMini(map,ps,now);
@@ -310,7 +312,7 @@
     const onPointerUp=()=>{swipe=null;};
     window.addEventListener('keydown',onKey);canvas.addEventListener('pointerdown',onPointerDown);canvas.addEventListener('pointermove',onPointerMove);canvas.addEventListener('pointerup',onPointerUp);canvas.addEventListener('pointercancel',onPointerUp);
     ctx.cleanup.push(()=>{window.removeEventListener('keydown',onKey);canvas.removeEventListener('pointerdown',onPointerDown);canvas.removeEventListener('pointermove',onPointerMove);canvas.removeEventListener('pointerup',onPointerUp);canvas.removeEventListener('pointercancel',onPointerUp);});
-    const abilities=document.createElement('div');abilities.className='rt-abilities';abilityNames.forEach((name,k)=>{const b=document.createElement('button');b.type='button';b.className='rt-ability';b.innerHTML='<b>'+(k+1)+'</b><span>'+name+'</span>';b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();ability(k);});abilities.append(b);});ui.stage.append(abilities);
+    const abilities=document.createElement('div');abilities.className='rt-abilities';abilityNames.forEach((name,k)=>{const b=document.createElement('button');b.type='button';b.className='rt-ability';const number=document.createElement('b');number.textContent=String(k+1);const label=document.createElement('span');label.textContent=name;b.append(number,label);abilityButtons.push(b);abilityLabels.push(label);b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();ability(k);});abilities.append(b);});ui.stage.append(abilities);
     if(host){newGame();sendSnapshot(true);ctx.setStatus('Вы — ведущий симуляции · '+ctx.players+' игроков',null,'Захватывайте клетки и перерезайте чужие следы');}
     else ctx.setStatus('Ожидаем ведущего матча…',null,'Синхронизация карты начнётся автоматически');
     ctx.onMsg=d=>{
