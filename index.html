@@ -353,7 +353,7 @@ function connectServer(mode,code,maxPlayers=2){
       Net.conn={open:true,send(value){return sendSignal({t:'data',payload:value});}};
       scores={};showHub();renderConn();toast('Игрок вышел. Осталось: '+Net.players);
     }else if(msg.t==='data'){
-      if(Net.state==='connected')onData(msg.payload);
+      if(Net.state==='connected')onData({...msg.payload,from:msg.from});
     }else if(msg.t==='error'){
       if(msg.code==='code_taken'&&mode==='host'&&Net.state==='hosting'){
         Net.code=genCode();Net.open=false;
