@@ -166,22 +166,22 @@ test('ten-player rooms accept all seats and relay state to every other participa
   const sockets=await Promise.all(Array.from({length:11},()=>connect(url)));
   const [host,...guests]=sockets;
   const hosted=waitFor(host,m=>m.t==='hosted');
-  host.send(JSON.stringify({t:'host',code:'TEN10',maxPlayers:10}));
+  host.send(JSON.stringify({t:'host',code:'TWN23',maxPlayers:10}));
   assert.equal((await hosted).maxPlayers,10);
   for(let count=2;count<=10;count++){
     const ready=sockets.slice(0,count).map(s=>waitFor(s,m=>m.t==='ready'&&m.players===count));
-    guests[count-2].send(JSON.stringify({t:'join',code:'TEN10'}));
+    guests[count-2].send(JSON.stringify({t:'join',code:'TWN23'}));
     const messages=await Promise.all(ready);
     assert.deepEqual(messages.map(m=>m.role).sort((a,b)=>a-b),Array.from({length:count},(_,i)=>i));
     assert.ok(messages.every(m=>m.maxPlayers===10));
   }
-  assert.equal(rooms.get('TEN10').players.length,10);
+  assert.equal(rooms.get('TWN23').players.length,10);
   const broadcasts=sockets.slice(0,9).map(s=>waitFor(s,m=>m.t==='data'&&m.payload?.d?.snapshot===42));
   sockets[9].send(JSON.stringify({t:'data',payload:{t:'g',n:5,d:{snapshot:42}}}));
   const received=await Promise.all(broadcasts);
   assert.ok(received.every(m=>m.from===9),'the tenth seat is relayed as sender role 9');
   const full=waitFor(sockets[10],m=>m.t==='error');
-  sockets[10].send(JSON.stringify({t:'join',code:'TEN10'}));
+  sockets[10].send(JSON.stringify({t:'join',code:'TWN23'}));
   assert.equal((await full).code,'room_full');
   for(const socket of sockets)if(socket.readyState===WebSocket.OPEN)socket.close();
 });
