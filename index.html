@@ -121,8 +121,8 @@ input[type=text],#iCode{border:1px solid #b9bdc2;border-radius:4px;padding:8px 1
 .bs-fleet .done{opacity:.25}
 .foot{margin-top:40px;color:var(--muted);font-size:12px;text-align:center}
 </style>
-<link rel="stylesheet" href="games-extra.css?v=7">
-<link rel="stylesheet" href="site.css?v=2">
+<link rel="stylesheet" href="games-extra.css?v=8">
+<link rel="stylesheet" href="site.css?v=3">
 </head>
 <body>
 
@@ -141,6 +141,7 @@ input[type=text],#iCode{border:1px solid #b9bdc2;border-radius:4px;padding:8px 1
     <button class="theme-choice" type="button" data-site-theme="light" aria-pressed="true">☀ Светлая</button>
     <button class="theme-choice" type="button" data-site-theme="dark" aria-pressed="false">☾ Тёмная</button>
   </div>
+  <div class="theme-picker"><label for="themeColor">Акцентный цвет</label><div class="theme-color-row"><input type="color" id="themeColor" value="#2f7780" aria-label="Выбрать цвет оформления"><output id="themeColorValue" for="themeColor">#2F7780</output><button type="button" class="decor-clear" id="themeColorReset">Сбросить</button></div><p class="decor-subtitle">Цвет кнопок, выделений и элементов интерфейса. Сохраняется на устройстве.</p></div>
   <div class="decor-divider"></div>
   <div class="decor-heading decor-inner-title"><strong>Какашки</strong><span id="poopCounter" class="decor-count">0 / 3</span></div>
   <p class="decor-subtitle">Выбери одну из трёх, перетаскивай по экрану. Нажми ×, чтобы убрать.</p>
@@ -170,7 +171,7 @@ input[type=text],#iCode{border:1px solid #b9bdc2;border-radius:4px;padding:8px 1
   </section>
 </div>
 
-<script src="site-personalize.js?v=1"></script>
+<script src="site-personalize.js?v=2"></script>
 <script src="games-extra.js?v=8"></script>
 <script src="games-cards.js?v=1"></script>
 <script>
