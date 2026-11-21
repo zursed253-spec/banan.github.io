@@ -14,14 +14,16 @@ class FakeNode {
   removeEventListener(k,fn){this.listeners[k]=(this.listeners[k]||[]).filter(x=>x!==fn);}
   getBoundingClientRect(){return {width:900,height:620,left:0,top:0};}
   getContext(){return canvasContext;}
+  get classList(){return {toggle(){},add(){},remove(){}};}
+  setPointerCapture(){}
   set innerHTML(v){this._html=String(v);this.children=[];}
   get innerHTML(){return this._html||'';}
 }
 const canvasContext=new Proxy({}, {get(target,key){if(!(key in target))target[key]=()=>{};return target[key];},set(target,key,value){target[key]=value;return true;}});
-let rafId=0;
+let rafId=0;const rafQueue=[];
 const window={devicePixelRatio:1,addEventListener(){},removeEventListener(){}};
 const document={createElement(tag){return new FakeNode(tag);}};
-const sandbox={window,document,console,Math,Uint8Array,Int32Array,Array,Number,String,Date,JSON,Map,Set,performance:{now:()=>0},requestAnimationFrame(){return ++rafId;},cancelAnimationFrame(){},btoa,atob};
+const sandbox={window,document,console,Math,Uint8Array,Int32Array,Array,Number,String,Date,JSON,Map,Set,performance:{now:()=>0},requestAnimationFrame(fn){rafQueue.push(fn);return ++rafId;},cancelAnimationFrame(){},btoa,atob};
 vm.runInNewContext(fs.readFileSync(__dirname+'/../games-realtime.js','utf8'),sandbox);
 const Games={},LIST=[];
 window.registerRealtimeGames(Games,LIST);
@@ -66,4 +68,18 @@ test('territory host publishes a packed map and clients apply incremental update
   const delta=btoa(String.fromCharCode(5,0,0x21));
   guest.onMsg({g:'territory-state',kind:'snap',mapDelta:delta,players:init.players,counts:init.counts,timeLeft:119.895,_from:0});
   host.cleanup.forEach(fn=>fn());guest.cleanup.forEach(fn=>fn());
+});
+
+test('both realtime simulations advance and publish state snapshots',()=>{
+  for(const id of ['agar','territory']){
+    const host=makeCtx(id,0,3),guest=makeCtx(id,2,3);
+    const init=host.sent.find(m=>m.kind==='init');assert.ok(init,id+' host initializes');
+    guest.onMsg({...init,_from:0});
+    for(let frame=0;frame<18;frame++){
+      const pending=rafQueue.splice(0);
+      for(const callback of pending)callback(frame*16);
+    }
+    assert.ok(host.sent.some(m=>m.kind==='snap'),id+' host publishes updated state');
+    host.cleanup.forEach(fn=>fn());guest.cleanup.forEach(fn=>fn());
+  }
 });
