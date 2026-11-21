@@ -3,6 +3,9 @@ on:
   push:
     paths:
       - "games-extra.js"
+      - "games-realtime.js"
+      - "games-realtime.css"
+      - "tests/realtime-games.test.cjs"
       - "index.html"
       - "tests/hub-modes.test.cjs"
       - "games-cards.js"
@@ -36,5 +39,6 @@ jobs:
           node-version: '22'
       - run: node --check games-extra.js
       - run: node --check games-cards.js
+      - run: node --check games-realtime.js
       - run: node --check site-personalize.js
-      - run: node --test tests/extra-games.test.cjs tests/game-cards.test.cjs tests/site-personalize.test.cjs tests/hub-modes.test.cjs
+      - run: node --test tests/extra-games.test.cjs tests/game-cards.test.cjs tests/realtime-games.test.cjs tests/site-personalize.test.cjs tests/hub-modes.test.cjs
