@@ -30,7 +30,7 @@ function createApp() {
   const wss = new WebSocketServer({
     server,
     path: '/ws',
-    maxPayload: 65536,
+    maxPayload: 131072,
     perMessageDeflate: false,
   });
 
