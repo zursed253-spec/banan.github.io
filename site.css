@@ -597,3 +597,6 @@ input[type=text], #iCode { width: 180px; text-transform: uppercase; letter-spaci
 .ttt-6 .ttt-cell.p3 { color:#a56cbd; }
 :root[data-theme="dark"] .ttt-6 .ttt-cell { background:#263944; border-color:#425861; }
 :root[data-theme="dark"] .ttt-6 .ttt-cell.win { background:#31564e; border-color:#82b7a7; }
+
+/* User-selected accent color */
+.theme-picker{margin-top:16px}.theme-picker>label{display:block;font-size:13px;font-weight:700;margin-bottom:9px}.theme-color-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.theme-color-row input[type=color]{width:58px;height:43px;padding:3px;border:1px solid var(--line);border-radius:12px;background:var(--panel);cursor:pointer}.theme-color-row output{font:650 13px ui-monospace,monospace;letter-spacing:.3px}.theme-color-row .decor-clear{margin:0;padding:8px 11px}.btn.primary{background:var(--accent);border-color:var(--accent);box-shadow:0 5px 14px rgba(var(--accent-rgb,47,119,128),.19)}.btn.primary:hover:not(:disabled){background:var(--accent);filter:brightness(.9)}.theme-choice[aria-pressed=true]{background:var(--accent-soft);border-color:var(--accent);color:var(--ink)}button:focus-visible,input:focus-visible{outline-color:rgba(var(--accent-rgb,47,119,128),.4)}.card:hover:not(:disabled){border-color:var(--accent)}
