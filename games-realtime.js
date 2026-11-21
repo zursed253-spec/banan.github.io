@@ -228,6 +228,8 @@
     const ui=createStage(ctx,'territory','Захват территории','WASD / стрелки или свайп · 1 рывок · 2 щит · 3 взрыв');
     const {canvas,context:g,timer,board}=ui;
     const W=150,H=150,CELLS=W*H,TICK=105,TIME=120000;
+    const mini=document.createElement('canvas');mini.className='rt-minimap';mini.width=W;mini.height=H;ui.stage.append(mini);
+    const miniCtx=mini.getContext('2d'),miniImage=miniCtx.createImageData(W,H);let miniLast=0;
     const dirs=[[1,0],[0,1],[-1,0],[0,-1]];
     const owner=new Uint8Array(CELLS),trail=new Uint8Array(CELLS);
     let players=[],ticks=0,timeLeft=TIME/1000,started=false,ended=false,acc=0,lastPacked=new Uint8Array(CELLS),view={map:new Uint8Array(CELLS),players:[],timeLeft:120000};
@@ -282,6 +284,11 @@
     function finishClient(winner,reason){if(ended&&!host)return;ended=true;ctx.end(winner,reason||'Матч завершён');}
     function inputDir(dir){if(!Number.isInteger(dir)||dir<0||dir>3||ended)return;if(host){const p=players[0];if(p&&dir!==(p.dir+2)%4)p.next=dir;}else ctx.send({g:'territory-input',dir});}
     function ability(k){if(!Number.isInteger(k)||k<0||k>2||ended)return;if(host)useAbility(players[0],k);else ctx.send({g:'territory-ability',ability:k});}
+    function drawMini(map,ps,now){
+      if(now-miniLast<180)return;miniLast=now;const data=miniImage.data;
+      for(let i=0;i<CELLS;i++){const v=map[i]||0,id=(v>>4)|| (v&15),at=i*4;if(id){const c=rgb[id-1]||[180,180,180];data[at]=c[0];data[at+1]=c[1];data[at+2]=c[2];}else{data[at]=232;data[at+1]=237;data[at+2]=242;}data[at+3]=255;}
+      miniCtx.putImageData(miniImage,0,0);for(const p of ps){if(!p.alive)continue;miniCtx.fillStyle='#fff';miniCtx.fillRect(p.x-2,p.y-2,4,4);miniCtx.fillStyle=colors[p.id-1];miniCtx.fillRect(p.x-1,p.y-1,2,2);}
+    }
     function draw(now){
       const map=host?packedMap():view.map,ps=host?playersData():view.players||[],counts=host?countsNow():view.counts||[];
       const w=ui.width,h=ui.height,dpr=ui.dpr;g.setTransform(dpr,0,0,dpr,0,0);g.fillStyle='#2b3038';g.fillRect(0,0,w,h);
@@ -294,6 +301,7 @@
       timer.textContent=formatMs((host?timeLeft:(view.timeLeft??120))*1000);
       ui.info.textContent='Ваша территория: '+(counts.length?((counts[ctx.me+1]||0)/CELLS*100).toFixed(1):'0.0')+'% · WASD / стрелки · 1–3 способности';
       const rank=ps.slice().sort((a,b)=>(counts[b.id]||0)-(counts[a.id]||0)).map(p=>({name:p.id===ctx.me+1?'Вы':p.name,value:(counts.length?((counts[p.id]||0)/CELLS*100).toFixed(1):'0.0')+'%',color:colors[p.id-1]}));setBoard(board,rank);
+      drawMini(map,ps,now);
     }
     function formatMs(ms){const s=Math.max(0,Math.ceil(ms/1000));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}
     function onKey(e){const k=e.key.toLowerCase(),map={arrowright:0,d:0,arrowdown:1,s:1,arrowleft:2,a:2,arrowup:3,w:3};if(k in map){inputDir(map[k]);e.preventDefault();}const ab={'1':0,'2':1,'3':2};if(k in ab){ability(ab[k]);e.preventDefault();}}
