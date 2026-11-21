@@ -5,10 +5,10 @@ const { WebSocket, WebSocketServer } = require('ws');
 
 const VALID_CODE = /^[A-HJ-NP-Z2-9]{5}$/;
 const MIN_PLAYERS = 2;
-const MAX_PLAYERS = 4;
+const MAX_PLAYERS = 10;
 const MAX_ROOMS = 500;
 const MAX_CLIENTS = 1000;
-const MAX_MESSAGES_PER_MINUTE = 600;
+const MAX_MESSAGES_PER_MINUTE = 1800;
 
 function createApp() {
   const rooms = new Map();
@@ -30,7 +30,7 @@ function createApp() {
   const wss = new WebSocketServer({
     server,
     path: '/ws',
-    maxPayload: 8192,
+    maxPayload: 65536,
     perMessageDeflate: false,
   });
 
