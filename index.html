@@ -320,8 +320,8 @@ function fail(e){
 }
 function sendSignal(value){
   if(Net.peer&&Net.peer.readyState===WebSocket.OPEN){
-    Net.peer.send(JSON.stringify(value));
-    return true;
+    try{Net.peer.send(JSON.stringify(value));return true;}
+    catch(error){console.error('Banan network send failed:',error);return false;}
   }
   return false;
 }
@@ -402,7 +402,7 @@ function onData(m){
   if(m.t==='req'){if(Net.role===0&&LIST.some(g=>g.id===m.game))hostStart(m.game);}
   else if(m.t==='start'){launch(m.game,m.first,m.n,m.players);}
   else if(m.t==='menu'){showHub();}
-  else if(m.t==='g'){if(cur&&m.n===cur.n&&cur.ctx.onMsg)cur.ctx.onMsg(Object.assign({},m.d,{_from:m.from}));}
+  else if(m.t==='g'){if(cur&&m.n===cur.n&&cur.ctx.onMsg){try{cur.ctx.onMsg(Object.assign({},m.d,{_from:m.from}));}catch(error){console.error('Banan game message failed:',cur.id,error);toast('Не удалось обработать ход. Попробуйте ещё раз.');}}}
 }
 function hostStart(id){
   const game=LIST.find(item=>item.id===id);
@@ -612,7 +612,13 @@ function launch(id,first,n,players){
   $('#board').innerHTML='';
   ctx.renderScore();
   window.scrollTo(0,0);
-  Games[id].init(ctx);
+  try{Games[id].init(ctx);}
+  catch(error){
+    console.error('Banan game initialization failed:',id,error);
+    ctx.cleanup.forEach(fn=>{try{fn();}catch(cleanupError){console.error(cleanupError);}});
+    cur=null;$('#board').replaceChildren();$('#gameView').hidden=true;$('#hubView').hidden=false;
+    toast('Не удалось запустить игру. Вернитесь в меню и попробуйте снова.');
+  }
 }
 $('#bBack').onclick=()=>{
   if(Net.state==='connected'&&Net.conn&&Net.conn.open)Net.conn.send({t:'menu'});
