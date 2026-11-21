@@ -10,13 +10,13 @@ test('all embedded page scripts parse',()=>{
   scripts.forEach((source,index)=>assert.doesNotThrow(()=>new Function(source),'inline script '+index+' parses'));
 });
 
-test('all visible game modes support one through four participants',()=>{
+test('standard game modes support one through four participants and realtime games support ten',()=>{
   const start=html.indexOf('const LIST=['),end=html.indexOf('];',start);
   const list=html.slice(start,end);
   for(const id of ['ttt','bs','c4','rev','dots'])assert.ok(list.includes("id:'"+id+"'"),id+' is in the hub catalogue');
   assert.match(html,/game\.minPlayers=1;game\.maxPlayers=4/);
   assert.match(html,/game\.teamGame=!individualGames\.has\(game\.id\)/);
-  assert.match(html,/individualGames=new Set\(\['ttt','durak','lastcard','poker','dungeon','kingdom'\]\)/);
+  assert.match(html,/individualGames=new Set\(\['ttt','durak','lastcard','poker','dungeon','kingdom','agar','territory'\]\)/);
 });
 
 test('tic-tac-toe has distinct three- and four-player rules',()=>{
@@ -44,7 +44,7 @@ test('four-player battleship resolves team shots once and syncs teammate results
 });
 
 
-test('every visible game is registered and exposes one-to-four participant limits',()=>{
+test('standard games retain four-seat limits and realtime games register for ten',()=>{
   const extra=fs.readFileSync(require.resolve('../games-extra.js'),'utf8');
   const cards=fs.readFileSync(require.resolve('../games-cards.js'),'utf8');
   const extraIds=['chess','checkers','gomoku','hex','quoridor','mines','memory','vanish','blockade'];
@@ -52,7 +52,11 @@ test('every visible game is registered and exposes one-to-four participant limit
   for(const id of extraIds)assert.ok(extra.includes("U.register('"+id+"'"),id+' is registered');
   for(const id of cardIds)assert.ok(cards.includes("'"+id+"'"),id+' is registered');
   assert.match(html,/game\.minPlayers=1;game\.maxPlayers=4/);
-  assert.match(html,/const individualGames=new Set\(\['ttt','durak','lastcard','poker','dungeon','kingdom'\]\)/);
+  assert.match(html,/const individualGames=new Set\(\['ttt','durak','lastcard','poker','dungeon','kingdom','agar','territory'\]\)/);
+  const realtime=fs.readFileSync(require.resolve('../games-realtime.js'),'utf8');
+  for(const id of ['agar','territory'])assert.ok(realtime.includes("id:'"+id+"'"),id+' realtime game is registered');
+  assert.match(html,/largeRoomGames=new Set\(\['agar','territory'\]\)/);
+  assert.match(html,/game\.maxPlayers=10/);
   assert.match(html,/sendSignal\(\{t:'host',code:Net\.code,maxPlayers:Net\.maxPlayers\}\)/,'room collision retry preserves selected capacity');
 });
 
