@@ -172,7 +172,7 @@ input[type=text],#iCode{border:1px solid #b9bdc2;border-radius:4px;padding:8px 1
   </section>
 </div>
 
-<script src="site-personalize.js?v=2"></script>
+<script src="site-personalize.js?v=3"></script>
 <script src="games-extra.js?v=8"></script>
 <script src="games-cards.js?v=1"></script>
 <script src="games-realtime.js?v=1"></script>
@@ -430,7 +430,7 @@ function makeCtx(id,first,n,players){
   const teamGame=!!meta.teamGame;
   const count=Math.max(1,Math.min(10,Number(players)||Net.players||2));
   const botSeatGame=count===1&&['durak','lastcard','poker','kingdom'].includes(id);
-  const scoreSize=teamGame?2:(botSeatGame?4:Math.max(count,id==='ttt'&&count===1?2:count));
+  const scoreSize=(id==='agar'||id==='territory')?0:(teamGame?2:(botSeatGame?4:Math.max(count,id==='ttt'&&count===1?2:count)));
   const ctx={
     id,first:(local&&count===1?0:(teamGame?first%2:first)),n,players:count,maxPlayers:Net.maxPlayers,
     teamGame,team:local?0:(teamGame?Net.role%2:Net.role),
