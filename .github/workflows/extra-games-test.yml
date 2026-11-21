@@ -19,6 +19,9 @@ on:
   pull_request:
     paths:
       - "games-extra.js"
+      - "games-realtime.js"
+      - "games-realtime.css"
+      - "tests/realtime-games.test.cjs"
       - "index.html"
       - "tests/hub-modes.test.cjs"
       - "games-cards.js"
