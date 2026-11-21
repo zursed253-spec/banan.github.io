@@ -19,11 +19,11 @@ class FakeNode {
   set innerHTML(v){this._html=String(v);this.children=[];}
   get innerHTML(){return this._html||'';}
 }
-const canvasContext=new Proxy({}, {get(target,key){if(!(key in target))target[key]=()=>{};return target[key];},set(target,key,value){target[key]=value;return true;}});
+const canvasContext=new Proxy({}, {get(target,key){if(key==='createImageData')return (w,h)=>({data:new Uint8ClampedArray(w*h*4)});if(!(key in target))target[key]=()=>{};return target[key];},set(target,key,value){target[key]=value;return true;}});
 let rafId=0;const rafQueue=[];
 const window={devicePixelRatio:1,addEventListener(){},removeEventListener(){}};
 const document={createElement(tag){return new FakeNode(tag);}};
-const sandbox={window,document,console,Math,Uint8Array,Int32Array,Array,Number,String,Date,JSON,Map,Set,performance:{now:()=>0},requestAnimationFrame(fn){rafQueue.push(fn);return ++rafId;},cancelAnimationFrame(){},btoa,atob};
+const sandbox={window,document,console,Math,Uint8Array,Uint8ClampedArray,Int32Array,Array,Number,String,Date,JSON,Map,Set,performance:{now:()=>0},requestAnimationFrame(fn){rafQueue.push(fn);return ++rafId;},cancelAnimationFrame(){},btoa,atob};
 vm.runInNewContext(fs.readFileSync(__dirname+'/../games-realtime.js','utf8'),sandbox);
 const Games={},LIST=[];
 window.registerRealtimeGames(Games,LIST);
